@@ -44,8 +44,8 @@
           </section>
         </div>
         <section class="settings-card">
-          <el-collapse class="quiet-collapse"><el-collapse-item title="提示词与模型输入" name="advanced">
-            <el-form-item label="匹配提示词"><el-input v-model="config.customPrompt" type="textarea" :rows="5" maxlength="20000" /></el-form-item>
+          <el-collapse v-model="advancedSections" class="quiet-collapse"><el-collapse-item title="提示词与模型输入" name="advanced">
+            <el-form-item ref="promptSection" label="匹配提示词"><el-input ref="promptInput" v-model="config.customPrompt" type="textarea" :rows="5" maxlength="20000" /></el-form-item>
             
             <el-button :loading="previewLoading" @click="previewInput">预览实际模型输入</el-button>
             
@@ -95,8 +95,21 @@ import JobFilterMode from '@renderer/features/JobFilterMode/index.vue'
 import JobModelInputPreview from '@renderer/features/JobModelInputPreview/index.vue'
 import { useJobFilterSettings } from '@renderer/store/job-filter-settings'
 import { QuestionFilled } from '@element-plus/icons-vue'
-import { ref, onMounted, onActivated, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, onMounted, onActivated, watch, nextTick } from 'vue'
+import { ElMessage, ElInput, ElFormItem } from 'element-plus'
+import { useRoute } from 'vue-router'
+const route = useRoute()
+const advancedSections = ref<string[]>([])
+const promptInput = ref<InstanceType<typeof ElInput>>()
+const promptSection = ref<InstanceType<typeof ElFormItem>>()
+async function revealPrompt() {
+  if (route.query.focus !== 'prompt') return
+  activeTab.value = 'settings'
+  advancedSections.value = ['advanced']
+  await nextTick()
+  promptSection.value?.$el?.scrollIntoView({ block: 'center' })
+  promptInput.value?.textarea?.focus({ preventScroll: true })
+}
 const settings = useJobFilterSettings()
 const config = ref({ enabled: false, resumeFileName: '', resumeFileId: '', resumeText: '', preferences: '', learnedPreferences: '', feedbackLearnedAt: '', resumeSourceText: '', resumeParsingNotes: [] as string[], resumeParseMethod: '', resumeParseModel: '', customPrompt: '', inputSources: { resume: true, preferences: true, employmentAndTraversal: true, regexRules: false, pageFilters: false, companyRules: false, feedback: true } as Record<string, boolean> })
 const job = ref({ jobName: '', postDescription: '', company: '', city: '' })
@@ -149,9 +162,10 @@ async function refreshInfo() {
 
 watch(() => ({ resumeFileId: config.value.resumeFileId, resumeText: config.value.resumeText, resumeSourceText: config.value.resumeSourceText, preferences: config.value.preferences, customPrompt: config.value.customPrompt, inputSources: config.value.inputSources }), () => { saved.value = false }, { deep: true })
 let mounted = false
-onActivated(() => { if (mounted) refreshInfo().catch(error => ElMessage.error(String(error))) })
+onActivated(() => { if (mounted) refreshInfo().then(revealPrompt).catch(error => ElMessage.error(String(error))) })
+watch(() => route.query.focus, () => { if (mounted) revealPrompt() })
 onMounted(async () => {
-  try { config.value = await window.electron.ipcRenderer.invoke('get-job-ai-match'); await refreshInfo() }
+  try { config.value = await window.electron.ipcRenderer.invoke('get-job-ai-match'); await refreshInfo(); await revealPrompt() }
   catch (error) { ElMessage.error(String(error)) }
   finally { mounted = true }
 })

@@ -2,10 +2,8 @@
   <div class="input-preview">
     <div class="preview-banner"><div><strong>本次提供给模型的内容</strong><p>只展示实际勾选的资料；预览不调用模型，不会开聊。</p></div><el-tag effect="plain">{{ payload.currentDate }}</el-tag></div>
     <section class="preview-card">
-      <h3>输入资料 <el-tooltip placement="right" :enterable="false"><template #content><div style="max-width: 340px; line-height: 1.8">“输入资料”用于决定哪些资料参与模型匹配。勾选后，这类资料会加入模型输入；取消勾选后，这类资料不会发送给模型。这里预览的是已保存设置，不会调用模型，也不会发出开聊消息。</div></template><QuestionFilled style="width: 15px; height: 15px; vertical-align: middle; color: var(--el-text-color-secondary)" aria-label="输入资料说明" /></el-tooltip><el-button link type="primary" style="margin-left: 12px" @click="showFlow = true">流程图</el-button></h3>
-      <el-dialog v-model="showFlow" title="模型输入流程图" width="min(1000px, 92vw)" append-to-body destroy-on-close>
-        <div style="max-height: 70vh; overflow-y: auto"><MatchingFlow :payload="payload" /></div>
-      </el-dialog>
+      <h3>输入资料 <el-tooltip placement="right" :enterable="false"><template #content><div style="max-width: 340px; line-height: 1.8">“输入资料”用于决定哪些资料参与模型匹配。勾选后，这类资料会加入模型输入；取消勾选后，这类资料不会发送给模型。这里预览的是已保存设置，不会调用模型，也不会发出开聊消息。</div></template><QuestionFilled style="width: 15px; height: 15px; vertical-align: middle; color: var(--el-text-color-secondary)" aria-label="输入资料说明" /></el-tooltip><el-button link type="primary" style="margin-left: 12px"  :aria-expanded="showFlow" @click="showFlow = !showFlow">{{ showFlow ? '收起流程图' : '流程图' }}</el-button></h3>
+      <MatchingFlow v-if="showFlow" :payload="payload" />
       <div class="switch-grid"><div><h4>AI 检查字段</h4><p>{{ selectedFieldsLabel }}</p></div><div><h4>独立正则检查</h4><p>{{ enabledRegexLabel }}</p></div></div>
       
     </section>
