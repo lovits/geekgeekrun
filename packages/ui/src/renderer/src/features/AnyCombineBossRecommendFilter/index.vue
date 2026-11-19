@@ -11,7 +11,7 @@
       <el-table-column v-if="$slots['employment-type']" label="求职类型" min-width="120"><template #default><slot name="employment-type" /></template></el-table-column>
       <el-table-column v-for="field in fields" :key="field.key" :label="field.label" :min-width="field.key === 'scaleList' ? 140 : 128">
         <template #default>
-          <el-select v-model="modelValue[field.key]" multiple clearable :placeholder="'不限'" :aria-label="field.label" popper-class="job-combo-filter-options">
+          <el-select v-model="modelValue[field.key]" :multiple-limit="field.key === 'industryList' ? 3 : 0" multiple clearable :placeholder="'不限'" :aria-label="field.label" popper-class="job-combo-filter-options">
             <template #tag><span v-if="modelValue[field.key]?.length" class="selection-summary">已选 {{ modelValue[field.key]?.length || 0 }} 项</span></template>
             <template v-if="field.key === 'industryList'"><el-option-group v-for="group in industryGroups" :key="group.code" :label="group.name"><el-option v-for="item in group.subLevelModelList" :key="item.code" :label="item.name" :value="item.code" /></el-option-group></template>
             <template v-else><el-option v-for="option in field.options" :key="option.code" :label="option.name" :value="option.code" /></template>

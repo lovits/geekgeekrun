@@ -5,7 +5,7 @@
     <section v-if="includes('pageFilters')" class="combination-section">
       <h4>{{ isFixed ? '固定组合筛选条件' : '自由组合筛选条件' }}</h4>
       <div class="table-scroll"><table class="filter-table"><thead><tr><th v-if="isFixed">组合</th><th v-for="field in filterFields" :key="field.key">{{ field.label }}</th></tr></thead><tbody><tr v-for="(group, index) in combinationRows" :key="index"><td v-if="isFixed">{{ index + 1 }}</td><td v-for="field in filterFields" :key="field.key">{{ displayFilter(field.key, group[isFixed ? field.key.replace('List', '') : field.key]) }}</td></tr></tbody></table></div>
-      <p class="helper">{{ isFixed ? '每行是一组条件，依次查找这些组合。不同组合互为替代。' : '上表是当前所选选项。程序会尝试单项和多项搭配，不要求同一个岗位同时满足全部选项。' }}{{ !isFixed && context.traversalDetails ? context.traversalDetails.skipEmpty ? '已跳过最初的空条件组合。' : '会保留最初不限定这些字段的组合；求职类型仍单独生效。' : '' }}</p>
+      <p class="helper">{{ isFixed ? '每行是一组条件，依次查找这些组合。不同组合互为替代。' : '同栏多选一起勾选；城市、薪资按单选项交叉分组。每组保留全部多选条件，不额外生成不限组。未选择的栏保持不限。同栏满足任一项，不同栏共同生效；求职类型在每组单独设置。' }}</p>
       <dl v-if="context.cities?.length || context.salary?.low || context.salary?.high || context.workExperience?.length" class="extra-conditions"><template v-if="context.cities?.length"><dt>额外工作地限制</dt><dd>{{ cityNames }}</dd></template><template v-if="context.salary?.low || context.salary?.high"><dt>额外薪资限制</dt><dd>{{ salaryLabel }}</dd></template><template v-if="context.workExperience?.length"><dt>额外经验限制</dt><dd>{{ experienceNames }}</dd></template></dl>
     </section>
     <template v-if="includes('companyRules')">
@@ -30,7 +30,7 @@ const props = withDefaults(defineProps<{ context: Record<string, any>; sections?
 const includes = (key: string) => !props.sections || props.sections.includes(key)
 const filterFields = [{ key: 'cityList', label: '城市' }, { key: 'salaryList', label: '薪资待遇' }, { key: 'experienceList', label: '工作经验' }, { key: 'degreeList', label: '学历' }, { key: 'industryList', label: '公司行业' }, { key: 'scaleList', label: '公司规模' }]
 const isFixed = computed(() => String(props.context.traversalMode).startsWith('固定'))
-const traversalLabel = computed(() => isFixed.value ? '固定组合逐组查找' : '自由组合逐组查找')
+const traversalLabel = computed(() => isFixed.value ? '固定组合逐组查找' : '自由组合：多选一起，单选分组')
 const combinationRows = computed(() => isFixed.value ? props.context.staticFilterGroups?.length ? props.context.staticFilterGroups : [{}] : [props.context.pageFilters || {}])
 const blocked = computed(() => describeRegex(props.context.blockedCompaniesRegex || ''))
 const ruleFields = computed(() => [{ key: 'jobName', label: '岗位名称' }, { key: 'positionName', label: '职位类型关键词' }, { key: 'postDescription', label: '岗位描述' }].filter(field => props.context.regex?.[field.key]?.trim()).map(field => ({ ...field, description: describeRegex(props.context.regex[field.key]) })))

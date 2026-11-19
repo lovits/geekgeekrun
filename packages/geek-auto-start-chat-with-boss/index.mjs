@@ -20,9 +20,7 @@ import { setDomainLocalStorage } from '@geekgeekrun/utils/puppeteer/local-storag
 
 import { storageFilePath, readConfigFile, writeStorageFile, ensureConfigFileExist, readStorageFile, ensureStorageFileExist } from './runtime-file-utils.mjs'
 import {
-  calculateTotalCombinations,
   combineFiltersWithConstraintsGenerator,
-  checkAnyCombineBossRecommendFilterHasCondition,
   formatStaticCombineFilters,
 } from './combineCalculator.mjs'
 import { default as jobFilterConditions } from './internal-config/job-filter-conditions-20241002.json'
@@ -143,10 +141,6 @@ const staticCombineRecommendJobFilterConditions = readConfigFile('boss.json').st
 const expectEmploymentType = readConfigFile('boss.json').expectEmploymentType ?? 0
 const employmentTypeName = jobFilterConditions.jobTypeList.find(it => it.code === expectEmploymentType)?.name
 if (!employmentTypeName) throw new Error('无效的求职类型配置')
-let isSkipEmptyConditionForCombineRecommendJobFilter = readConfigFile('boss.json').isSkipEmptyConditionForCombineRecommendJobFilter
-if (!checkAnyCombineBossRecommendFilterHasCondition(anyCombineRecommendJobFilter)) {
-  isSkipEmptyConditionForCombineRecommendJobFilter = false
-}
 const expectJobRegExpStr = readConfigFile('boss.json').expectJobRegExpStr
 const jobNotMatchStrategy = readConfigFile('boss.json').jobNotMatchStrategy ?? MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_BOSS
 
@@ -836,14 +830,10 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
       }
     }
 
-    let filterConditions =
+    const filterConditions =
       combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE
         ? formatStaticCombineFilters(staticCombineRecommendJobFilterConditions)
           : combineFiltersWithConstraintsGenerator(anyCombineRecommendJobFilter)
-    if (filterCheckOnly && combineRecommendJobFilterType === CombineRecommendJobFilterType.ANY_COMBINE) {
-      const fields = Object.entries(anyCombineRecommendJobFilter).filter(([, values]) => Array.isArray(values) && values.length)
-      filterConditions = Array.from({ length: Math.max(1, ...fields.map(([, values]) => values.length)) }, (_, index) => Object.fromEntries(fields.map(([key, values]) => [key, [values[index % values.length]]])))
-    }
     let expectJobList
     let filterConditionIndex = -1
     iterateFilterCondition: for (
@@ -874,18 +864,7 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
             break
           }
         }
-        if (
-          (
-            combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE && filterCondition === null
-          )
-          ||
-          (
-            combineRecommendJobFilterType === CombineRecommendJobFilterType.ANY_COMBINE &&
-            isSkipEmptyConditionForCombineRecommendJobFilter &&
-            Object.keys(filterCondition).length &&
-            Object.keys(filterCondition).every(k => !filterCondition[k]?.length)
-          )
-        ) {
+        if (combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE && filterCondition === null) {
           sleep(4000)
           continue iterateFilterCondition
         }

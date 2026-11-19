@@ -5,7 +5,7 @@ import vm from 'node:vm'
 import { test } from 'node:test'
 import puppeteer from 'puppeteer'
 import { clickFilterOption, setEmploymentTypeFilter, setNationwideCity } from './page-filters.mjs'
-import { formatStaticCombineFilters } from './combineCalculator.mjs'
+import { formatStaticCombineFilters, combineFiltersWithConstraintsGenerator } from './combineCalculator.mjs'
 
 const source = readFileSync(new URL('./index.mjs', import.meta.url), 'utf8')
 const require = createRequire(import.meta.url)
@@ -73,9 +73,10 @@ test('page controls select nationwide, internships and all six experience/degree
           <li ka="employment-0">不限</li><li ka="employment-1901" class="active">全职</li>
           <li ka="employment-1902">实习</li><li ka="employment-1903">兼职</li>
         </ul></div>
-        <div id="salary" class="is-select"><li ka="sel-job-rec-salary-0">不限</li><li ka="sel-job-rec-salary-405" class="active">10-20K</li></div>
+        <div id="salary" class="is-select"><li ka="sel-job-rec-salary-0">不限</li><li ka="sel-job-rec-salary-402">3K以下</li><li ka="sel-job-rec-salary-403">3-5K</li><li ka="sel-job-rec-salary-404">5-10K</li><li ka="sel-job-rec-salary-405" class="active">10-20K</li></div>
         <div id="experience" class="is-select"><li ka="sel-job-rec-exp-0">不限</li><li ka="sel-job-rec-exp-108">在校生</li><li ka="sel-job-rec-exp-102">应届生</li><li ka="sel-job-rec-exp-101">经验不限</li><li ka="sel-job-rec-exp-104" class="active">1-3年</li></div>
         <div id="degree" class="is-select"><li ka="sel-job-rec-degree-0">不限</li><li ka="sel-job-rec-degree-203">本科</li><li ka="sel-job-rec-degree-204">硕士</li><li ka="sel-job-rec-degree-205" class="active">博士</li></div>
+        <div id="scale" class="is-select"><li ka="sel-job-rec-scale-0">不限</li><li ka="sel-job-rec-scale-303" class="active">100-499人</li><li ka="sel-job-rec-scale-304">500-999人</li><li ka="sel-job-rec-scale-305">1000-9999人</li><li ka="sel-job-rec-scale-306">10000人以上</li></div>
       </div></div>
       <div class="city-select-dialog" style="display:none"><div class="city-select-wrapper"><ul><li><a>全国</a></li></ul></div></div>
       <script>
@@ -86,14 +87,19 @@ test('page controls select nationwide, internships and all six experience/degree
         })
         const bar = document.querySelector('.filter-condition-inner')
         bar.__vue__ = { $children: [
-          ['求职类型', 'employment'], ['薪资待遇', 'salary'], ['工作经验', 'experience'], ['学历要求', 'degree']
+          ['求职类型', 'employment'], ['薪资待遇', 'salary'], ['工作经验', 'experience'], ['学历要求', 'degree'], ['公司规模', 'scale']
         ].map(([placeholder, id]) => ({ placeholder, $el: document.getElementById(id) })) }
         for (const dropdown of bar.querySelectorAll('div[id]')) {
           dropdown.addEventListener('click', event => {
             const option = event.target.closest('li')
             if (!option) return
-            dropdown.querySelectorAll('.active').forEach(it => it.classList.remove('active'))
-            option.classList.add('active')
+            if (['employment', 'salary'].includes(dropdown.id) || option.getAttribute('ka').endsWith('-0')) {
+              dropdown.querySelectorAll('.active').forEach(it => it.classList.remove('active'))
+              option.classList.add('active')
+            } else {
+              dropdown.querySelector('[ka$="-0"]')?.classList.remove('active')
+              option.classList.toggle('active')
+            }
           })
         }
         bar.querySelector('button').onclick = () => document.querySelector('.city-select-dialog').style.display = 'block'
@@ -126,6 +132,17 @@ test('page controls select nationwide, internships and all six experience/degree
         experience: 'sel-job-rec-exp-' + condition.experienceList[0],
         degree: 'sel-job-rec-degree-' + condition.degreeList[0]
       })
+    }
+    const combined = [...combineFiltersWithConstraintsGenerator({
+      cityList: [], salaryList: [402, 403, 404], experienceList: [108, 102, 101],
+      degreeList: [203, 204], scaleList: [304, 305, 306], industryList: []
+    })]
+    assert.equal(combined.length, 3)
+    for (const condition of combined) {
+      await scope.setFilterCondition(condition)
+      await setEmploymentTypeFilter(page, '实习')
+      const selected = await page.evaluate(() => Object.fromEntries(['salary', 'experience', 'degree', 'scale'].map(id => [id, [...document.querySelectorAll('#' + id + ' .active')].map(el => Number(el.getAttribute('ka').split('-').pop())).sort((a,b) => a-b)])))
+      assert.deepEqual(selected, { salary: condition.salaryList, experience: [101, 102, 108], degree: [203, 204], scale: [304, 305, 306] })
     }
     await setEmploymentTypeFilter(page, '不限')
     assert.equal(await page.$eval('#employment .active', el => el.textContent), '不限')

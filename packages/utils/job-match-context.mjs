@@ -1,5 +1,5 @@
 import { activeDescList } from '../geek-auto-start-chat-with-boss/constant.mjs'
-import { calculateTotalCombinations, checkAnyCombineBossRecommendFilterHasCondition, formatStaticCombineFilters, getStaticCombineFilterKey } from '../geek-auto-start-chat-with-boss/combineCalculator.mjs'
+import { calculateTotalCombinations, formatStaticCombineFilters, getStaticCombineFilterKey } from '../geek-auto-start-chat-with-boss/combineCalculator.mjs'
 
 export function buildJobMatchContext(boss = {}, common = {}, targets = [], catalog = {}) {
   const use = boss.fieldsForUseCommonConfig || {}
@@ -8,13 +8,12 @@ export function buildJobMatchContext(boss = {}, common = {}, targets = [], catal
   const describeFilters = (filters = {}) => Object.fromEntries(Object.entries(filters).map(([key, values]) => [key, Array.isArray(values) ? values.map(value => label(key, value)) : values]))
   const free = boss.anyCombineRecommendJobFilter || {}
   const fixed = [...new Map((boss.staticCombineRecommendJobFilterConditions || []).map(group => [getStaticCombineFilterKey(group), group])).values()]
-  const skipEmpty = checkAnyCombineBossRecommendFilterHasCondition(free) && Boolean(boss.isSkipEmptyConditionForCombineRecommendJobFilter)
   return {
     employmentType: boss.expectEmploymentType === 1902 ? '实习' : boss.expectEmploymentType,
     activityCutoff: boss.markAsNotActiveSelectedTimeRange || 0,
     activityRequirement: boss.markAsNotActiveSelectedTimeRange ? activeDescList[Number(boss.markAsNotActiveSelectedTimeRange) + 1] || '按自动开聊活跃度设置' : '不限活跃度',
-    traversalMode: (boss.combineRecommendJobFilterType ?? 1) === 1 ? '自由组合逐组遍历，各组是替代组合，不是同一岗位必须满足全部学历和经验' : '固定组合逐组遍历，各组是替代组合',
-    traversalDetails: { combinationCount: (boss.combineRecommendJobFilterType ?? 1) === 1 ? calculateTotalCombinations(free, !skipEmpty) : formatStaticCombineFilters(fixed).length, skipEmpty },
+    traversalMode: (boss.combineRecommendJobFilterType ?? 1) === 1 ? '自由组合：同栏多选一起勾选，城市和薪资单选项交叉分组；不拆分多选项、不额外生成不限组。同栏满足任一项，不同栏共同生效' : '固定组合逐组遍历，各组是替代组合',
+    traversalDetails: { combinationCount: (boss.combineRecommendJobFilterType ?? 1) === 1 ? calculateTotalCombinations(free) : formatStaticCombineFilters(fixed).length },
     pageFilters: describeFilters(boss.anyCombineRecommendJobFilter),
     staticFilterGroups: fixed.map(group => Object.fromEntries(Object.entries(group).map(([key, value]) => [key, label(key + 'List', value)]))),
     cities: (use.city ? common : boss).expectCityList || [],

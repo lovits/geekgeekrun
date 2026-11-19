@@ -95,9 +95,9 @@
                     <template #content><div class="filter-help-content">
                       <p v-if="formContent.combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE">固定组合：按表格从上到下，一行一组，把这一行的城市、薪资、经验、学历、行业和规模设置到 BOSS 页面，再检查该组返回的岗位。</p>
                       <template v-else>
-                        <p>自由组合：把你选中的选项拆成不同搭配，依次设置到 BOSS 页面，再检查每组返回的岗位。</p>
-                        <p>例如只选三档公司规模：500–999人、1000–9999人、10000人以上，会尝试三种单档、三种两档组合，以及三档一起勾选，并非始终只选一个，也不是始终三个全选。</p>
-                        <p>默认还包含一次全部字段不限的组合。“跳过初始空条件”只跳过这一组；其他组合仍可能不限某些字段。城市、薪资每组最多选一项；经验、学历、规模可多选，行业每组最多三项。</p>
+                        <p>自由组合：同一栏能多选的选项一起勾到 BOSS 页面，不拆成单项或子组合；只有城市、薪资这些单选栏按所选值交叉分组。</p>
+                        <p>例如规模选三档，就同时勾选三档，只查一组；若再选两个薪资档，就查两组，每组仍同时勾选那三档规模。再选两座城市，则一共查四组。</p>
+                        <p>不会额外生成不限组；某一栏未选时，该栏保持不限。薪资、城市按 BOSS 的单选方式分别设置，经验、学历、规模一起多选，行业最多同时选三项。</p>
                       </template>
                       <p>同一字段多选表示满足其中任一项；一组内不同字段共同生效。每组中的岗位还要通过已启用的公司、正则、活跃度和 AI 筛选。求职类型在每一组单独设置。</p>
                     </div></template>
@@ -162,22 +162,6 @@
                     </el-select>
                       </template>
                     </AnyCombineBossRecommendFilter>
-                    <div mb0>
-                      <el-checkbox
-                        v-if="anyCombineBossRecommendFilterHasCondition"
-                        v-model="formContent.isSkipEmptyConditionForCombineRecommendJobFilter"
-                        @change="
-                          (v) => {
-                            gtagRenderer('is_skip_empty_condition_4crjf_changed', { v })
-                          }
-                        "
-                      >
-                        <span font-size-12px>跳过初始空条件，直接使用设置的条件查找职位</span>
-                      </el-checkbox>
-                      <el-checkbox v-else :model-value="false" disabled>
-                        <span font-size-12px>跳过初始空条件，直接使用设置的条件查找职位</span>
-                      </el-checkbox>
-                    </div>
                   </div>
                 </div>
                 <div font-size-12px>
@@ -747,7 +731,6 @@ import StaticCombineBossRecommendFilter from '@renderer/features/StaticCombineBo
 import { activeDescList } from '@geekgeekrun/geek-auto-start-chat-with-boss/constant.mjs'
 import {
   calculateTotalCombinations,
-  checkAnyCombineBossRecommendFilterHasCondition,
   formatStaticCombineFilters
 } from '@geekgeekrun/geek-auto-start-chat-with-boss/combineCalculator.mjs'
 import { gtagRenderer as baseGtagRenderer } from '@renderer/utils/gtag'
@@ -832,7 +815,6 @@ const formContent = ref<FilterForm>({
     StrategyScopeOptionWhenMarkJobNotMatch.ONLY_COMPANY_MATCHED_JOB,
   jobDetailRegExpMatchLogic: JobDetailRegExpMatchLogic.EVERY,
 
-  isSkipEmptyConditionForCombineRecommendJobFilter: false,
   __jobSourceList: formatJobSourceConfigToFormValue([
     {
       type: 'expect',
@@ -847,12 +829,6 @@ const formContent = ref<FilterForm>({
   fieldsForUseCommonConfig: {}
 })
 
-const anyCombineBossRecommendFilterHasCondition = computed(() => {
-  return checkAnyCombineBossRecommendFilterHasCondition(
-    formContent.value.anyCombineRecommendJobFilter
-  )
-})
-
 const currentAnyCombineRecommendJobFilterCombinationCount = computed(() => {
   if (
     formContent.value.combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE
@@ -864,12 +840,7 @@ const currentAnyCombineRecommendJobFilterCombinationCount = computed(() => {
       formContent.value.staticCombineRecommendJobFilterConditions
     )?.filter(Boolean).length
   }
-  return calculateTotalCombinations(
-    formContent.value.anyCombineRecommendJobFilter,
-    anyCombineBossRecommendFilterHasCondition.value
-      ? !formContent.value.isSkipEmptyConditionForCombineRecommendJobFilter
-      : true
-  )
+  return calculateTotalCombinations(formContent.value.anyCombineRecommendJobFilter)
 })
 watch(
   () => currentAnyCombineRecommendJobFilterCombinationCount.value,
@@ -987,8 +958,6 @@ electron.ipcRenderer.invoke('fetch-config-file-content').then((res) => {
     StrategyScopeOptionWhenMarkJobNotMatch.ONLY_COMPANY_MATCHED_JOB
   formContent.value.jobDetailRegExpMatchLogic =
     res.config['boss.json'].jobDetailRegExpMatchLogic ?? JobDetailRegExpMatchLogic.EVERY
-  formContent.value.isSkipEmptyConditionForCombineRecommendJobFilter =
-    res.config['boss.json'].isSkipEmptyConditionForCombineRecommendJobFilter ?? false
   formContent.value.__jobSourceList = formatJobSourceConfigToFormValue(
     res.config['boss.json'].jobSourceList || []
   )
@@ -1350,7 +1319,7 @@ function formatJobSourceFormValueToConfig(formValue: JobSourceConfig[] = []) {
 
 const combineRecommendJobFilterTypeOptions = [
   {
-    name: '使用自由组合条件进行遍历',
+    name: '自由组合：多选一起，单选分组',
     value: 1
   },
   {

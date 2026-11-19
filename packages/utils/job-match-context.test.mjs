@@ -23,11 +23,14 @@ test('unselected sources never appear in the prompt payload', async()=>{
 test('reports the same free/fixed combination counts as the running filter', () => {
  const free={experienceList:[108,102,101],degreeList:[203,204],scaleList:[304,305,306]}
  const base={combineRecommendJobFilterType:1,anyCombineRecommendJobFilter:free}
- assert.equal(buildJobMatchContext(base).traversalDetails.combinationCount,256)
- assert.equal(buildJobMatchContext({...base,isSkipEmptyConditionForCombineRecommendJobFilter:true}).traversalDetails.combinationCount,255)
+ assert.equal(buildJobMatchContext(base).traversalDetails.combinationCount,1)
+ assert.equal(buildJobMatchContext({...base,isSkipEmptyConditionForCombineRecommendJobFilter:true}).traversalDetails.combinationCount,1)
  const fixed=buildJobMatchContext({...base,combineRecommendJobFilterType:2,staticCombineRecommendJobFilterConditions:[{degree:203},{degree:203},{degree:204}]})
  assert.equal(fixed.traversalDetails.combinationCount,2)
  assert.equal(fixed.staticFilterGroups.length,2)
+ assert.equal(buildJobMatchContext({...base,anyCombineRecommendJobFilter:{...free,cityList:['上海','北京'],salaryList:[402,403,404]}}).traversalDetails.combinationCount,6)
+ assert.match(buildJobMatchContext(base).traversalMode,/同栏多选一起勾选/)
+ assert.ok(!('skipEmpty' in buildJobMatchContext(base).traversalDetails))
  assert.equal(buildJobMatchContext({}).traversalDetails.combinationCount,1)
 })
 test('provides only the active free/fixed settings when that input is selected',async()=>{
