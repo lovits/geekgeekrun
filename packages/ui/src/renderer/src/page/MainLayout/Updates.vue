@@ -19,7 +19,6 @@
     <p v-else-if="store.checkStatus === 'latest'">已是最新版本（当前系统与架构）。</p>
     <p v-else-if="store.checkStatus === 'error'">检查更新失败，请重试。</p>
     <p v-if="store.lastCheckedAt">上次检查：{{ store.lastCheckedAt }}</p>
-    <p class="note">只从我的仓库下载对应系统与架构的正式安装包；更新说明来自 GitHub Release。自动下载后由你手动安装，不会启动安装包或中断任务。</p>
   </div>
 </template>
 <script setup lang="ts">
@@ -31,5 +30,5 @@ function open(url: string) { window.electron.ipcRenderer.send('open-external-lin
 </script>
 <style scoped>
 .updates-page { padding: 24px; width: 100%; box-sizing: border-box; max-width: 1000px; line-height: 1.8; }
-h2 { margin-top: 0; } .actions { margin: 16px 0; } pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; }.note { font-size: 13px; color: var(--el-text-color-secondary); }
+h2 { margin-top: 0; } .actions { margin: 16px 0; } pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; }
 </style>

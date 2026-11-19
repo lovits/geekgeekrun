@@ -1,5 +1,5 @@
 <template>
-  <div class="page-wrap flex flex-col of-hidden">
+  <div class="page-wrap runtime-record-page flex flex-col of-hidden">
     <div v-loading="isTableLoading" class="flex-1 of-hidden">
       <div ref="tableContainerEl" class="h-100% of-hidden">
         <ElTable
@@ -8,12 +8,12 @@
           :data="tableData"
           row-key="encryptBossId"
           size="small"
-          table-layout="auto"
+          table-layout="fixed"
           highlight-current-row
         >
-          <ElTableColumn prop="companyName" label="公司" />
-          <ElTableColumn prop="name" label="BOSS" />
-          <ElTableColumn prop="title" label="BOSS身份" />
+          <ElTableColumn prop="companyName" label="公司"  min-width="100" show-overflow-tooltip />
+          <ElTableColumn prop="name" label="BOSS"  min-width="100" show-overflow-tooltip />
+          <ElTableColumn prop="title" label="BOSS身份"  min-width="140" show-overflow-tooltip />
         </ElTable>
       </div>
     </div>
@@ -50,11 +50,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElTable, ElTableColumn, ElButton, ElPagination } from 'element-plus'
-import { type VChatStartupLog } from '@geekgeekrun/sqlite-plugin/src/entity/VChatStartupLog'
+import { type VBossLibrary } from '@geekgeekrun/sqlite-plugin/src/entity/VBossLibrary'
 import { PageReq, PagedRes } from '../../../../common/types/pagination'
 import { gtagRenderer } from '@renderer/utils/gtag'
 
-const tableData = ref<VChatStartupLog[]>([])
+const tableData = ref<VBossLibrary[]>([])
 const pageSizeList = ref<number[]>([100, 200, 300, 400])
 const pagination = ref<Omit<PageReq & PagedRes<unknown>, 'data'>>({
   pageNo: 1,
@@ -73,7 +73,7 @@ async function getBossLibrary() {
     const { data: res } = (await electron.ipcRenderer.invoke('get-boss-library', {
       pageNo: pagination.value.pageNo,
       pageSize: pagination.value.pageSize
-    })) as { data: PagedRes<VChatStartupLog> }
+    })) as { data: PagedRes<VBossLibrary> }
     tableData.value = res.data
     pagination.value = {
       totalItemCount: res.totalItemCount,

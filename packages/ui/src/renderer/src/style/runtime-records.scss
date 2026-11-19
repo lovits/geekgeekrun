@@ -1,0 +1,27 @@
+.runtime-record-page {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  color: var(--el-text-color-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+
+  .el-table .cell { padding: 0 6px; line-height: 18px; }
+  .el-table .el-link { font-size: 12px; }
+  .el-table .el-button + .el-button { margin-left: 10px; }
+  .record-reason-preview {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    max-height: 36px;
+  }
+}
+.runtime-record-reason-tooltip {
+  max-width: min(560px, 80vw);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}

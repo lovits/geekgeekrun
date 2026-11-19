@@ -1,3 +1,4 @@
+import { atomicWriteFile } from '@geekgeekrun/utils/atomic-file-write.mjs'
 import defaultJobAiMatch from './default-config-file/job-ai-match.json' assert {type: 'json'}
 import fs from 'node:fs'
 import fsPromise from 'node:fs/promises'
@@ -29,21 +30,9 @@ export const configFolderPath = path.join(
   'config'
 )
 export const writeConfigFile = async (fileName, content, { isSync } = {}) => {
-  const filePath = path.join(configFolderPath, fileName)
-  const fileContent = JSON.stringify(content)
-  if (isSync) {
-    fs.writeFileSync(
-      filePath,
-      fileContent
-    )
-  }
-  else {
-    return fsPromise.writeFile(
-      filePath,
-      fileContent
-    )
-  }
+  return atomicWriteFile(path.join(configFolderPath, fileName), JSON.stringify(content), { isSync })
 }
+
 if (
   !fs.existsSync(
     path.join(configFolderPath, 'common-job-condition-config.json')

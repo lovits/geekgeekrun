@@ -25,7 +25,7 @@
             }"
           >
             <div>
-              期望投递公司
+              期望投递公司 <JobFilterHelp kind="expected" />
             </div>
             <el-dropdown @command="handleExpectCompanyTemplateClicked">
               <el-button size="small"
@@ -59,7 +59,7 @@
           }"
         >
           <div mb6px>
-            屏蔽公司
+            屏蔽公司 <JobFilterHelp kind="blocked" />
           </div>
           <el-dropdown @command="handleBlockCompanyNameRegExpTemplateClicked">
             <el-button size="small"
@@ -99,7 +99,7 @@
               justifyContent: 'space-between'
             }"
           >
-            <div font-size-14px>期望职位信息</div>
+            <div font-size-14px>期望职位信息 <JobFilterHelp kind="jobs" /></div>
             <div>
               <el-dropdown ml20px @command="handleExpectJobFilterTemplateClicked">
                 <el-button size="small"
@@ -267,6 +267,7 @@
 </template>
 
 <script setup lang="tsx">
+import JobFilterHelp from '@renderer/features/JobFilterHelp/index.vue'
 import CompanyTags from '@renderer/features/CompanyTags/index.vue'
 import JobFilterMode from '@renderer/features/JobFilterMode/index.vue'
 import { useRouter, useRoute } from 'vue-router'

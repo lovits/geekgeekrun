@@ -2,3 +2,5 @@ node_modules
 database.sqlite
 .env.local
 
+
+.DS_Store

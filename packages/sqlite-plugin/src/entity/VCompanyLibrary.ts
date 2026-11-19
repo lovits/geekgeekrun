@@ -9,13 +9,13 @@ const { ViewEntity, ViewColumn } = typeorm;
 })
 export class VCompanyLibrary {
   @ViewColumn()
-  encryptCompanyId: string;
+  encryptCompanyId!: string;
 
   @ViewColumn()
-  name: string;
+  name!: string;
 
   @ViewColumn()
-  brandName: string;
+  brandName!: string;
 
   @ViewColumn()
   scaleLow?: number;

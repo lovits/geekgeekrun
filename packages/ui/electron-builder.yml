@@ -1,5 +1,5 @@
 appId: com.geekgeekrun.ui
-productName: GeekGeekRun
+productName: GeekGeekRun Pro
 directories:
   buildResources: build
 icon: resources/icon.png
@@ -18,9 +18,9 @@ files:
 asarUnpack:
   - 'resources/**'
   - '**/*.node'
-afterPack: ./scripts/windows-native.cjs
+afterPack: ./scripts/native-database.cjs
 win:
-  executableName: geekgeekrun
+  executableName: geekgeekrun-pro
   target:
     - target: nsis
       arch: [x64]
@@ -29,11 +29,12 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   perMachine: false
-  artifactName: ${name}_${version}_${arch}_setup.${ext}
+  artifactName: geekgeekrun-pro_${version}_${arch}_setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  identity: '-'
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -42,10 +43,11 @@ mac:
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
 dmg:
-  artifactName: ${name}_${version}_${arch}.${ext}
+  artifactName: geekgeekrun-pro_${version}_${arch}.${ext}
 linux:
-  artifactName: ${name}_${version}_${arch}.${ext}
-  maintainer: GeekGeekRun
+  executableName: geekgeekrun-pro
+  artifactName: geekgeekrun-pro_${version}_${arch}.${ext}
+  maintainer: GeekGeekRun Pro
   category: Utility
 npmRebuild: false
 publish:

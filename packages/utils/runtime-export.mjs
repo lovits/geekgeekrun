@@ -4,7 +4,7 @@ export const exportScopes = {
   chats: { label: '开聊记录', table: 'v_chat_startup_log', dateField: 'date', dateLabel: '开聊时间' },
   unsuitable: { label: '标记不合适记录', table: 'v_mark_as_not_suit_log', dateField: 'date', dateLabel: '标记时间' },
   jobs: { label: '职位库', table: 'v_job_library', dateField: 'publishDate', dateLabel: '岗位发布日期' },
-  simulation: { label: '模拟投递记录', table: 'simulation', dateField: 'date', dateLabel: '记录时间' },
+  simulation: { label: '模拟开聊记录', table: 'simulation', dateField: 'date', dateLabel: '记录时间' },
   companies: { label: '公司库', table: 'v_company_library' },
   all: { label: '全部历史记录' }
 }

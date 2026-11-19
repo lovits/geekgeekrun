@@ -40,3 +40,12 @@ test('simulation records concrete exclusions without AI; unknown activity cannot
   assert.match(jobRegexFailures({ jobName: '产品经理实习' }, { jobName: '后端' })[0], /岗位名称.*产品经理实习/)
   assert.deepEqual(jobRegexFailures({ jobName: 'Agent', positionName: '算法' }, { jobName: 'Agent', positionName: '后端' }, 2), [])
 })
+
+test('every activity slider position preserves the current minimum-activity meaning', async () => {
+  const { activeDescList } = await import('../geek-auto-start-chat-with-boss/constant.mjs')
+  for (let cutoff = 0; cutoff < activeDescList.length - 1; cutoff++) {
+    for (let index = 0; index < activeDescList.length; index++) {
+      assert.equal(Boolean(bossActivityIssue(activeDescList[index], cutoff)), cutoff > 0 && index <= cutoff)
+    }
+  }
+})

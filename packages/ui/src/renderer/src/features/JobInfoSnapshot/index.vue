@@ -18,10 +18,7 @@
       }}
     </el-form-item>
     <el-form-item label="工作经验">{{ jobInfo.experienceName }}</el-form-item>
-    <el-form-item label="薪资">{{
-      `${jobInfo.salaryLow}-${jobInfo.salaryHigh}k` +
-      (jobInfo.salaryMonth ? `* ${jobInfo.salaryMonth}薪` : '')
-    }}</el-form-item>
+    <el-form-item label="薪资">{{ formatJobSalary(jobInfo) }}</el-form-item>
     <el-form-item label="职位描述">
       <pre class="of-auto">{{ jobInfo.description }}</pre>
     </el-form-item>
@@ -34,6 +31,7 @@
 
 <script setup lang="ts">
 import { PropType } from 'vue'
+import { formatJobSalary } from '@geekgeekrun/utils/job-salary.mjs'
 import { type VChatStartupLog } from '@geekgeekrun/sqlite-plugin/src/entity/VChatStartupLog'
 import { type VMarkAsNotSuitLog } from '@geekgeekrun/sqlite-plugin/src/entity/VMarkAsNotSuitLog'
 import { transformUtcDateToLocalDate } from '@geekgeekrun/utils/date.mjs'

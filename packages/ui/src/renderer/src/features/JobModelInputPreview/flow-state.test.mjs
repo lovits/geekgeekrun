@@ -10,7 +10,7 @@ test('every source switch controls only its corresponding flow node', () => {
     assert.equal(flow.boss.find(item=>item.key==='bossActivity').enabled,inputSources.activity)
     assert.equal(flow.boss.find(item=>item.key==='jobName').enabled,false)
     assert.equal(flow.boss.find(item=>item.key==='postDescription').enabled,true)
-    assert.equal(flow.boss.find(item=>item.key==='salary').enabled,false)
+    assert.equal(flow.boss.some(item=>item.key==='salary'),false)
   }
 })
 test('disabled AI sends no inputs; company/city, facts, prompt and system are automatic when AI is active', () => {
@@ -52,14 +52,12 @@ test('before-stage fields sharing the filter section become one card without dro
 })
 test('AI range and metadata each have one destination and mixed AI switches remain visible', () => {
   const groups=groupFlowInputs(jobMatchFlow({selectedFields:['postDescription'],inputSources:{activity:true}}).boss,'after')
-  assert.equal(groups.length,3)
+  assert.equal(groups.length,2)
   assert.equal(groups.find(group=>group.key==='aiScope').state,'mixed')
   assert.equal(groups.find(group=>group.key==='aiScope').action,'switches')
   assert.equal(groups.find(group=>group.key==='metadata').items.length,2)
   assert.equal(groups.find(group=>group.key==='metadata').state,'enabled')
   assert.equal(groups.find(group=>group.key==='metadata').capability,'fixed')
-  assert.equal(groups.find(group=>group.key==='salary').state,'disabled')
-  assert.equal(groups.find(group=>group.key==='salary').capability,'unavailable')
 })
 test('personal traversal and page filters merge without changing which context is enabled', () => {
   const flow=jobMatchFlow({selectedFields:['postDescription'],inputSources:{employmentAndTraversal:true,pageFilters:false}})
@@ -68,4 +66,14 @@ test('personal traversal and page filters merge without changing which context i
   assert.equal(group.state,'mixed')
   assert.equal(group.items.find(item=>item.key==='pageFilters').enabled,false)
   assert.equal(group.items.find(item=>item.key==='employmentAndTraversal').enabled,true)
+})
+
+test('company allowlist and blocklist preserve independent program switches', () => {
+  for (const companies of [false, true]) for (const blockedCompanies of [false, true]) {
+    const flow = jobMatchFlow({ selectedFields: ['postDescription'], switches: { regex: { companies, blockedCompanies } } })
+    const group = groupFlowInputs(flow.beforeBoss, 'before').find(item => item.key === 'companyRules')
+    assert.equal(group.state, companies && blockedCompanies ? 'enabled' : companies || blockedCompanies ? 'mixed' : 'disabled')
+    assert.equal(group.items.find(item => item.key === 'companies').enabled, companies)
+    assert.equal(group.items.find(item => item.key === 'blockedCompanies').enabled, blockedCompanies)
+  }
 })

@@ -1,3 +1,5 @@
+import { companyListMemberships, setCompanyListMembership } from '@geekgeekrun/utils/company-list-actions.mjs'
+import { jobFilterOptions } from '@geekgeekrun/utils/job-filter-options.mjs'
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import gtag from './gtag'
 import { projectUrl } from '@geekgeekrun/utils/project-links.mjs'
@@ -17,12 +19,30 @@ import { registerBrowserAssistantIpc } from '../window/browserAssistantWindow'
 
 export default function initPublicIpc() {
   registerBrowserAssistantIpc()
-  ipcMain.handle('save-common-job-condition-config', async (event, payload, { embedded = false } = {}) => {
+  let companyWrites = Promise.resolve()
+  const queueCompanyWrite = action => {
+    const operation = companyWrites.catch(() => {}).then(action)
+    companyWrites = operation.then(() => {}, () => {})
+    return operation
+  }
+  ipcMain.handle('save-common-job-condition-config', (event, payload, { embedded = false } = {}) => queueCompanyWrite(async () => {
     payload = { ...readConfigFile('common-job-condition-config.json'), ...payload }
     await writeConfigFile('common-job-condition-config.json', payload)
-    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('common-job-condition-config-updated', { config: payload })
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('common-job-condition-config-updated', { config: payload, memberships: companyListMemberships({ common: payload, boss: readConfigFile('boss.json'), targets: readConfigFile('target-company-list.json') }) })
     if (!embedded) BrowserWindow.fromWebContents(event.sender)?.close()
-  })
+  }))
+  ipcMain.handle('get-company-list-memberships', () => companyListMemberships({ common: readConfigFile('common-job-condition-config.json'), boss: readConfigFile('boss.json'), targets: readConfigFile('target-company-list.json') }))
+  ipcMain.handle('set-company-list-membership', (_, { company, list, enabled: requested } = {}) => queueCompanyWrite(async () => {
+    const common = readConfigFile('common-job-condition-config.json'), boss = readConfigFile('boss.json'), targets = readConfigFile('target-company-list.json')
+    const next = setCompanyListMembership({ common, boss, targets }, company, list, requested)
+    const updates = [['common-job-condition-config.json', common, next.common], ['boss.json', boss, next.boss], ['target-company-list.json', targets, next.targets]]
+    let changed = false
+    for (const [file, before, after] of updates) if (JSON.stringify(before) !== JSON.stringify(after)) { await writeConfigFile(file, after); changed = true }
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('common-job-condition-config-updated', { config: next.common, targetCompanies: next.targets, blockedCompanies: next.boss.blockCompanyNameRegExpStr || '', memberships: next.memberships })
+    const switches = jobFilterOptions(readConfigFile('job-ai-match.json')).regex
+    const enabled = switches[list === 'expected' ? 'companies' : 'blockedCompanies']
+    return { changed, memberships: next.memberships, warning: !requested && list === 'blocked' && switches.blockedCompanies && next.blocked ? '已移除此公司的独立条目，但仍匹配其他屏蔽规则；可到公共设置查看。' : !enabled ? '名单已保存；对应公司筛选开关当前关闭，启用后生效。' : list === 'expected' && switches.blockedCompanies && next.blocked ? '已加入期望公司，但仍命中屏蔽规则；屏蔽规则优先。' : '' }
+  }))
   ipcMain.on(
     'update-window-size',
     (

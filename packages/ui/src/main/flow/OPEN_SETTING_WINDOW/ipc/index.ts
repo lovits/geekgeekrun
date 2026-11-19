@@ -1,6 +1,6 @@
 import { downloadReleaseAsset } from '@geekgeekrun/utils/update-download.mjs'
 import { readJobFeedback, saveJobFeedback } from '@geekgeekrun/utils/job-feedback.mjs'
-import { hasConfiguredLlm, learnJobPreferences } from '@geekgeekrun/utils/job-feedback-learning.mjs'
+import { hasConfiguredLlm, feedbackLearningState } from '@geekgeekrun/utils/job-feedback-learning.mjs'
 import { codexContextLimits, validateContextWindow } from '@geekgeekrun/utils/codex-context.mjs'
 import fs from 'node:fs/promises'
 import { exportScopes, normalizeExportOptions, selectExportRecords, recordsToCsv } from '@geekgeekrun/utils/runtime-export.mjs'
@@ -332,21 +332,29 @@ export default function initIpc() {
     return hasConfiguredLlm(model) && (model.provider !== 'codex-cli' || (await codexStatus(model)).loggedIn)
   })
   let feedbackUpdate = Promise.resolve()
-  ipcMain.handle('save-job-feedback', (_, payload) => {
-    const operation = feedbackUpdate.catch(() => {}).then(async () => {
-      if (typeof payload?.jobId !== 'string' || typeof payload.jobName !== 'string' || typeof payload.description !== 'string') throw new Error('岗位反馈缺少必要信息')
-      const model = readConfigFile('llm.json')?.find(it => it.enabled)
-      if (!hasConfiguredLlm(model) || (model.provider === 'codex-cli' && !(await codexStatus(model)).loggedIn)) throw new Error('请先配置并登录大模型，再使用偏好反馈')
-      const records = await saveJobFeedback(payload)
-      let learnedPreferences = '', warning = ''
-      try { learnedPreferences = await learnJobPreferences(records, readConfigFile('job-ai-match.json')?.preferences || '', model) }
-      catch { warning = '标记已保存，但模型未能更新全局偏好；旧的自动总结已清空，后续仍可参考原始反馈。' }
-      await writeConfigFile('job-ai-match.json', { ...readConfigFile('job-ai-match.json'), learnedPreferences, feedbackLearnedAt: new Date().toISOString() })
-      return { value: payload.value, learnedPreferences, warning }
-    })
+  function queueJobMatchUpdate(action) {
+    const operation = feedbackUpdate.catch(() => {}).then(action)
     feedbackUpdate = operation.then(() => {}, () => {})
     return operation
-  })
+  }
+  async function refreshFeedbackLearning(config, records) {
+    const model = readConfigFile('llm.json')?.find(it => it.enabled)
+    return feedbackLearningState(config, records, model)
+  }
+  async function feedbackSwitchPatch(existing, updated) {
+    if (matchInputSources(existing).feedback === matchInputSources(updated).feedback) return { warning: '' }
+    return refreshFeedbackLearning(updated, matchInputSources(updated).feedback ? await readJobFeedback() : [])
+  }
+  ipcMain.handle('save-job-feedback', (_, payload) => queueJobMatchUpdate(async () => {
+    if (typeof payload?.jobId !== 'string' || typeof payload.jobName !== 'string' || typeof payload.description !== 'string') throw new Error('岗位反馈缺少必要信息')
+    const model = readConfigFile('llm.json')?.find(it => it.enabled)
+    if (!hasConfiguredLlm(model) || (model.provider === 'codex-cli' && !(await codexStatus(model)).loggedIn)) throw new Error('请先配置并登录大模型，再使用偏好反馈')
+    const records = await saveJobFeedback(payload)
+    const config = readConfigFile('job-ai-match.json')
+    const { warning, ...learning } = await refreshFeedbackLearning(config, records)
+    await writeConfigFile('job-ai-match.json', { ...config, ...learning })
+    return { value: payload.value, ...learning, warning }
+  }))
   ipcMain.handle('export-runtime-data', async (_, requested = {}) => {
     const options = normalizeExportOptions(requested)
     const result = await exportRuntimeData() as any
@@ -357,7 +365,7 @@ export default function initIpc() {
     const records = options.scope === 'all' ? null : selectExportRecords(result.data, options, feedback)
     if (records && !records.length) throw new Error('没有符合条件的记录，请调整筛选条件')
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
-    const selection = await dialog.showSaveDialog(mainWindow!, { title: '导出' + exportScopes[options.scope].label, defaultPath: path.join(app.getPath('downloads'), `GeekGeekRun-${exportScopes[options.scope].label}-${today}.${options.format}`), filters: [{ name: options.format === 'csv' ? 'CSV 表格' : 'JSON 完整数据', extensions: [options.format] }] })
+    const selection = await dialog.showSaveDialog(mainWindow!, { title: '导出' + exportScopes[options.scope].label, defaultPath: path.join(app.getPath('downloads'), `GeekGeekRun-Pro-${exportScopes[options.scope].label}-${today}.${options.format}`), filters: [{ name: options.format === 'csv' ? 'CSV 表格' : 'JSON 完整数据', extensions: [options.format] }] })
     if (selection.canceled || !selection.filePath) return null
     async function readOptional(name, lines = false) {
       try { const text = await fs.readFile(path.join(storageFilePath, name), 'utf8'); return lines ? text.split('\n').filter(Boolean).map(line => JSON.parse(line)) : JSON.parse(text) }
@@ -375,8 +383,12 @@ export default function initIpc() {
     const a = await getMarkAsNotSuitRecord(payload)
     return a
   })
-  ipcMain.handle('get-job-library', async (_ev, payload: PageReq) => {
-    const a = await getJobLibrary(payload)
+  ipcMain.handle('get-job-library', async (_ev, payload: PageReq & { companyName?: string; companyId?: string; companyOrder?: string | null }) => {
+    for (const key of ['companyName', 'companyId'] as const) {
+      if (payload[key] != null && (typeof payload[key] !== 'string' || payload[key]!.length > 500)) throw new Error('公司筛选条件无效')
+    }
+    if (payload.companyOrder != null && !['ascending', 'descending'].includes(payload.companyOrder)) throw new Error('公司排序方式无效')
+    const a = await getJobLibrary(payload as Parameters<typeof getJobLibrary>[0])
     return a
   })
   ipcMain.handle('get-boss-library', async (_ev, payload: PageReq) => {
@@ -512,22 +524,25 @@ export default function initIpc() {
     const payload = { systemInstructions: jobMatchSystemPrompt, ...matchingPayload({ ...config, filterContext: context, feedbackRecords: await readJobFeedback() }, { jobInfo: {} }) }
     return { config, context, payload }
   })
-  ipcMain.handle('save-job-filter-switches', async (_, payload) => {
+  ipcMain.handle('save-job-filter-switches', (_, payload) => queueJobMatchUpdate(async () => {
     const config = readConfigFile('job-ai-match.json')
     const updated = mergeJobFilterSettings(config, payload)
     if (updated.enabled && !hasRequiredMatchInputs(updated)) throw new Error('请先到AI模型筛选中保存简历和求职偏好')
-    await writeConfigFile('job-ai-match.json', updated)
-    return { enabled: updated.enabled, regexFilters: updated.regexFilters, aiFilters: updated.aiFilters, inputSources: updated.inputSources }
-  })
-  ipcMain.handle('save-job-ai-match', async (_, config) => {
+    const { warning, ...learning } = await feedbackSwitchPatch(config, updated)
+    await writeConfigFile('job-ai-match.json', { ...updated, ...learning })
+    return { enabled: updated.enabled, regexFilters: updated.regexFilters, aiFilters: updated.aiFilters, inputSources: updated.inputSources, warning }
+  }))
+  ipcMain.handle('save-job-ai-match', (_, config) => queueJobMatchUpdate(async () => {
     if (typeof config?.resumeText !== 'string' || typeof config.preferences !== 'string' || config.resumeText.length > 80000 || config.preferences.length > 20000) throw new Error('AI筛选配置格式无效或内容过长')
     const existing = readConfigFile('job-ai-match.json')
     if (jobFilterOptions(existing).enabled && !hasRequiredMatchInputs(config)) throw new Error('请先导入简历并填写求职偏好')
     if (typeof config.customPrompt !== 'string' || config.customPrompt.length > 20000) throw new Error('提示词无效或过长')
     const inputSources = matchInputSources(config)
     if (config.resumeFileId) await fs.access(resumeDocumentPath(config.resumeFileId))
-    await writeConfigFile('job-ai-match.json', { ...existing, inputSources, customPrompt: config.customPrompt, resumeText: config.resumeText, resumeFileName: path.basename(String(config.resumeFileName || '')), resumeFileId: config.resumeFileId || '', preferences: config.preferences, resumeSourceText: typeof config.resumeSourceText === 'string' ? config.resumeSourceText.slice(0, 80000) : '', resumeParsingNotes: Array.isArray(config.resumeParsingNotes) ? config.resumeParsingNotes.filter(v => typeof v === 'string') : [], resumeParseMethod: String(config.resumeParseMethod || ''), resumeParseModel: String(config.resumeParseModel || '') })
-  })
+    const { warning, ...learning } = await feedbackSwitchPatch(existing, { ...existing, ...config, inputSources })
+    await writeConfigFile('job-ai-match.json', { ...existing, inputSources, customPrompt: config.customPrompt, resumeText: config.resumeText, resumeFileName: path.basename(String(config.resumeFileName || '')), resumeFileId: config.resumeFileId || '', preferences: config.preferences, resumeSourceText: typeof config.resumeSourceText === 'string' ? config.resumeSourceText.slice(0, 80000) : '', resumeParsingNotes: Array.isArray(config.resumeParsingNotes) ? config.resumeParsingNotes.filter(v => typeof v === 'string') : [], resumeParseMethod: String(config.resumeParseMethod || ''), resumeParseModel: String(config.resumeParseModel || ''), ...learning })
+    return { warning }
+  }))
   ipcMain.handle('import-job-ai-resume', async () => {
     const result = await dialog.showOpenDialog(mainWindow!, { title: '使用AI解析简历', properties: ['openFile'], filters: [{ name: '简历', extensions: ['pdf', 'txt', 'md'] }] })
     if (result.canceled || !result.filePaths[0]) return null
@@ -681,7 +696,7 @@ export default function initIpc() {
     updateDownload = (async () => {
       const release = await checkUpdateForUi()
       if (!release) throw new Error('没有可下载的新正式版本')
-      return downloadReleaseAsset(release, path.join(app.getPath('downloads'), 'GeekGeekRun-updates'))
+      return downloadReleaseAsset(release, path.join(app.getPath('downloads'), 'GeekGeekRun-Pro-updates'))
     })().finally(() => { updateDownload = null })
     return updateDownload
   })

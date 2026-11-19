@@ -1,7 +1,7 @@
 import createDbWorker from './worker/index?nodeWorker&url'
 import { type Worker } from 'node:worker_threads'
 import { randomUUID } from 'node:crypto'
-import { PageReq } from '../../../../../common/types/pagination'
+import { PageReq, JobLibraryReq } from '../../../../../common/types/pagination'
 
 let worker: Worker | null = null
 let workerExitCode: number | null = null
@@ -89,11 +89,14 @@ export const getCompanyLibrary = async ({ pageNo, pageSize }: Partial<PageReq> =
   return res
 }
 
-export const getJobLibrary = async ({ pageNo, pageSize }: Partial<PageReq> = {}) => {
+export const getJobLibrary = async ({ pageNo, pageSize, companyName, companyId, companyOrder }: Partial<JobLibraryReq> = {}) => {
   const res = await createWorkerPromise({
     type: 'getJobLibrary',
     pageNo,
-    pageSize
+    pageSize,
+    companyName,
+    companyId,
+    companyOrder
   })
   return res
 }

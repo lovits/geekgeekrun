@@ -1,5 +1,9 @@
 <template>
-  <div class="page-wrap flex flex-col of-hidden">
+  <div class="page-wrap runtime-record-page flex flex-col of-hidden">
+    <div class="company-filter">
+      <el-input v-model="companyFilter" placeholder="筛选公司" aria-label="筛选公司" size="small" clearable @keyup.enter="applyCompanyFilter" @clear="applyCompanyFilter" />
+      <ElButton size="small" @click="applyCompanyFilter">筛选</ElButton>
+    </div>
     <div v-loading="isTableLoading" class="flex-1 of-hidden">
       <div ref="tableContainerEl" class="h-100% of-hidden">
         <ElTable
@@ -8,23 +12,20 @@
           :data="tableData"
           row-key="encryptJobId"
           size="small"
-          table-layout="auto"
+          table-layout="fixed"
           highlight-current-row
+          @sort-change="handleCompanySort"
         >
-          <ElTableColumn prop="companyName" label="公司" />
-          <ElTableColumn prop="jobName" label="职位名称" />
-          <ElTableColumn prop="positionName" label="职位分类" />
-          <ElTableColumn prop="experienceName" label="工作经验" />
+          <ElTableColumn prop="companyName" label="公司" sortable="custom"  min-width="100" show-overflow-tooltip />
+          <ElTableColumn prop="jobName" label="职位名称"  min-width="170" show-overflow-tooltip />
+          <ElTableColumn prop="positionName" label="职位分类"  min-width="85" show-overflow-tooltip />
+          <ElTableColumn prop="experienceName" label="工作经验"  min-width="95" show-overflow-tooltip />
           <ElTableColumn
             label="薪资"
-            :formatter="
-              (row, _col, _val) =>
-                `${row.salaryLow}-${row.salaryHigh}k` +
-                (row.salaryMonth ? `* ${row.salaryMonth}薪` : '')
-            "
-          />
-          <ElTableColumn prop="bossName" label="BOSS" />
-          <ElTableColumn prop="bossTitle" label="BOSS身份" />
+            :formatter="(row) => formatJobSalary(row)"
+           min-width="100" show-overflow-tooltip />
+          <ElTableColumn prop="bossName" label="BOSS"  min-width="100" show-overflow-tooltip />
+          <ElTableColumn prop="bossTitle" label="BOSS身份"  min-width="140" show-overflow-tooltip />
           <ElTableColumn label="职位信息" fixed="right" :width="200">
             <template #default="{ row }">
               <ElButton
@@ -119,6 +120,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatJobSalary } from '@geekgeekrun/utils/job-salary.mjs'
 import RecordExport from '@renderer/features/RecordExport/index.vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElTable, ElTableColumn, ElButton, ElPagination, ElDrawer, ElMessage } from 'element-plus'
@@ -129,6 +131,18 @@ import JobInfoSnapshot from '../../features/JobInfoSnapshot/index.vue'
 import JobInfoHistoryList from '../../features/JobInfoHistoryList/index.vue'
 import { gtagRenderer } from '@renderer/utils/gtag'
 
+const companyFilter = ref('')
+const companyOrder = ref<'ascending' | 'descending' | null>(null)
+function handleCompanySort({ order }: { order: 'ascending' | 'descending' | null }) {
+  companyOrder.value = order
+  pagination.value.pageNo = 1
+  getJobLibrary()
+}
+let requestId = 0
+function applyCompanyFilter() {
+  pagination.value.pageNo = 1
+  getJobLibrary()
+}
 const tableData = ref<VChatStartupLog[]>([])
 const pageSizeList = ref<number[]>([100, 200, 300, 400])
 const pagination = ref<Omit<PageReq & PagedRes<unknown>, 'data'>>({
@@ -139,6 +153,7 @@ const pagination = ref<Omit<PageReq & PagedRes<unknown>, 'data'>>({
 const tableRef = ref<InstanceType<typeof ElTable>>()
 const isTableLoading = ref(false)
 async function getJobLibrary() {
+  const currentRequest = ++requestId
   try {
     gtagRenderer('job_library_request_sent', {
       page_no: pagination.value.pageNo,
@@ -147,8 +162,11 @@ async function getJobLibrary() {
     isTableLoading.value = true
     const { data: res } = (await electron.ipcRenderer.invoke('get-job-library', {
       pageNo: pagination.value.pageNo,
-      pageSize: pagination.value.pageSize
+      pageSize: pagination.value.pageSize,
+      companyName: companyFilter.value,
+      companyOrder: companyOrder.value
     })) as { data: PagedRes<VChatStartupLog> }
+    if (currentRequest !== requestId) return
     tableData.value = res.data
     pagination.value = {
       totalItemCount: res.totalItemCount,
@@ -160,6 +178,7 @@ async function getJobLibrary() {
       page_size: pagination.value.pageSize,
     })
   } catch (err) {
+    if (currentRequest !== requestId) return
     gtagRenderer('job_library_request_error', {
       err,
       page_no: pagination.value.pageNo,
@@ -168,8 +187,10 @@ async function getJobLibrary() {
     console.log(err)
     tableData.value = []
   } finally {
-    tableRef.value?.setScrollTop(0)
-    isTableLoading.value = false
+    if (currentRequest === requestId) {
+      tableRef.value?.setScrollTop(0)
+      isTableLoading.value = false
+    }
   }
 }
 
@@ -276,6 +297,9 @@ async function handleViewJobHistoryButtonClick(record: VChatStartupLog) {
 </script>
 
 <style scoped lang="scss">
+.company-filter { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+.company-filter .el-input { width: 220px; }
+
 .page-wrap {
   margin: 0 auto;
   max-width: 1000px;

@@ -23,9 +23,9 @@ jobs:
         shell: pwsh
         run: |
           $env:ELECTRON_RUN_AS_NODE = '1'
-          & ./packages/ui/dist/win-unpacked/geekgeekrun.exe ./packages/ui/scripts/windows-smoke.cjs ./packages/ui/dist/win-unpacked/resources/app.asar
+          & ./packages/ui/dist/win-unpacked/geekgeekrun-pro.exe ./packages/ui/scripts/packaged-database-smoke.cjs ./packages/ui/dist/win-unpacked/resources/app.asar
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
-          name: GeekGeekRun-Windows-x64
+          name: GeekGeekRun-Pro-Windows-x64
           path: packages/ui/dist/*_setup.exe

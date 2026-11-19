@@ -2,160 +2,111 @@ name: Release UI
 
 on:
   push:
-    # Sequence of patterns matched against refs/tags
     tags:
-      - "ui-v*" # Push events to matching v*, i.e. v1.0, v20.15.10
+      - 'ui-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PUPPETEER_SKIP_DOWNLOAD: 'true'
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
 jobs:
-  build_on_windows:
-    env:
-      PUPPETEER_SKIP_DOWNLOAD: 'true'
-      VITE_APP_GTAG_API_SECRET: ${{ secrets.VITE_APP_GTAG_API_SECRET }}
-      VITE_APP_GTAG_MEASUREMENT_ID: ${{ secrets.VITE_APP_GTAG_MEASUREMENT_ID }}
-    runs-on: windows-2022
-    permissions: write-all
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - name: Checkout source
-      uses: actions/checkout@v2
-    
-    - name: Install pnpm
-      run: |
-        npm i pnpm@8.15.9 -g
-         
-    - name: Patch pnpm
-      uses: actions/github-script@v3
-      with:
-        script: |
-          // https://github.com/pnpm/pnpm/issues/5638
-          const path = require('path')
-          const fs = require('fs')
-          const childProcess = require('child_process')
-          const npmGlobalModuleFolder = childProcess.execSync('npm root -g').toString().trim()
-          const pnpmCjsFilePath = path.join(npmGlobalModuleFolder, 'pnpm/bin/pnpm.cjs')
-          let pnpmCjsFileContent = fs.readFileSync(pnpmCjsFilePath).toString().replace(/^(#!\/usr\/bin\/env node)/, '#!node')
-          fs.writeFileSync(pnpmCjsFilePath, pnpmCjsFileContent)
-
-    - name: Install dependencies
-      run: |
-        cd packages/ui
-        pnpm i --force
-
-    - name: Build
-      run: |
-        cd packages/ui
-        pnpm run build:make-dist-for-current-platform
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: binary-geekgeekrun-ui-windows-x64-${{ github.sha }}
-        path: |
-          ${{ github.workspace }}/packages/ui/dist/*.exe
-        overwrite: true
-
-  build_on_macos:
-    strategy:
-      matrix:
-        platform:
-          - os: macos-15-intel # for x64 build
-            arch: x64
-          - os: macos-15 # for arm64 build
-            arch: arm64
-    env:
-      PUPPETEER_SKIP_DOWNLOAD: 'true'
-      VITE_APP_GTAG_API_SECRET: ${{ secrets.VITE_APP_GTAG_API_SECRET }}
-      VITE_APP_GTAG_MEASUREMENT_ID: ${{ secrets.VITE_APP_GTAG_MEASUREMENT_ID }}
-    runs-on: ${{ matrix.platform.os }}
-    permissions: write-all
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - name: Checkout source
-      uses: actions/checkout@v2
-    
-    - name: Install dependencies
-      run: |
-        npm i pnpm@8.15.9 -g
-        cd packages/ui
-        pnpm i --force
-
-    - name: Build
-      run: |
-        cd packages/ui
-        pnpm run build:make-dist-for-current-platform
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: binary-geekgeekrun-ui-macos-${{ matrix.platform.arch }}-${{ github.sha }}
-        path: |
-          ${{ github.workspace }}/packages/ui/dist/*.dmg
-        overwrite: true
-
-  build_on_linux:
-    env:
-      PUPPETEER_SKIP_DOWNLOAD: 'true'
-      VITE_APP_GTAG_API_SECRET: ${{ secrets.VITE_APP_GTAG_API_SECRET }}
-      VITE_APP_GTAG_MEASUREMENT_ID: ${{ secrets.VITE_APP_GTAG_MEASUREMENT_ID }}
+  verify:
     runs-on: ubuntu-22.04
-    permissions: write-all
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - name: Checkout source
-      uses: actions/checkout@v2
-    
-    - name: Install dependencies
-      run: |
-        npm i pnpm@8.15.9 -g
-        cd packages/ui
-        pnpm i --force
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --global pnpm@8.15.9
+      - run: pnpm install --frozen-lockfile
+      - name: Run matching, configuration and packaging tests
+        run: node --test packages/utils/*.test.mjs packages/geek-auto-start-chat-with-boss/*.test.mjs packages/ui/src/renderer/src/features/CompanyTags/*.test.mjs packages/ui/src/renderer/src/features/JobFilterSettingsPreview/*.test.mjs packages/ui/src/renderer/src/features/JobModelInputPreview/*.test.mjs packages/ui/scripts/native-database.test.cjs
 
-    - name: Build
-      run: |
-        cd packages/ui
-        pnpm run build:make-dist-for-current-platform
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: binary-geekgeekrun-ui-linux-x64-${{ github.sha }}
-        path: |
-          ${{ github.workspace }}/packages/ui/dist/*.deb
-          ${{ github.workspace }}/packages/ui/dist/*.rpm
-        overwrite: true
+  build:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            platform: windows
+            arch: x64
+          - os: macos-15-intel
+            platform: macos
+            arch: x64
+            app-directory: mac
+          - os: macos-15
+            platform: macos
+            arch: arm64
+            app-directory: mac-arm64
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --global pnpm@8.15.9
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir packages/ui typecheck
+      - name: Build installer
+        run: pnpm --dir packages/ui build:make-dist-for-current-platform
+      - name: Check packaged Windows database
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          & ./packages/ui/dist/win-unpacked/geekgeekrun-pro.exe ./packages/ui/scripts/packaged-database-smoke.cjs ./packages/ui/dist/win-unpacked/resources/app.asar
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check packaged Mac database
+        if: runner.os == 'macOS'
+        run: ELECTRON_RUN_AS_NODE=1 'packages/ui/dist/${{ matrix.app-directory }}/GeekGeekRun Pro.app/Contents/MacOS/GeekGeekRun Pro' packages/ui/scripts/packaged-database-smoke.cjs 'packages/ui/dist/${{ matrix.app-directory }}/GeekGeekRun Pro.app/Contents/Resources/app.asar'
+      - name: Check packaged Linux database
+        if: runner.os == 'Linux'
+        run: ELECTRON_RUN_AS_NODE=1 packages/ui/dist/linux-unpacked/geekgeekrun-pro packages/ui/scripts/packaged-database-smoke.cjs packages/ui/dist/linux-unpacked/resources/app.asar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-geekgeekrun-ui-${{ matrix.platform }}-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            packages/ui/dist/*.exe
+            packages/ui/dist/*.dmg
+            packages/ui/dist/*.deb
+          if-no-files-found: error
 
   release:
-    runs-on: ubuntu-latest
-    permissions: write-all
-    needs: 
-      - build_on_linux
-      - build_on_macos
-      - build_on_windows
-
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          path: geekgeekrun-ui@${{ github.sha }}
+          path: release-assets
           pattern: binary-geekgeekrun-ui-*
           merge-multiple: true
-
-      - name: Display structure of downloaded files
-        run: ls -llR geekgeekrun-ui@${{ github.sha }}
-
-      - name: Create release for public
+      - name: Check release version and assets
+        run: |
+          version=$(node -p "require('./packages/ui/package.json').version")
+          test "$GITHUB_REF_NAME" = "ui-v$version"
+          test -f "release-assets/geekgeekrun-pro_${version}_arm64.dmg"
+          test -f "release-assets/geekgeekrun-pro_${version}_x64.dmg"
+          test -f "release-assets/geekgeekrun-pro_${version}_x64_setup.exe"
+          (cd release-assets && sha256sum *.dmg *.exe *.deb > SHA256SUMS.txt)
+      - name: Create release
         uses: ncipollo/release-action@v1
         with:
-          repo: geekgeekrun
+          name: GeekGeekRun Pro ${{ github.ref_name }}
+          tag: ${{ github.ref_name }}
           prerelease: false
           allowUpdates: true
-          artifacts: geekgeekrun-ui@${{ github.sha }}/*
-          tag: ${{ github.ref }}
+          artifacts: release-assets/*
+          bodyFile: docs/releases/0.20.0.md
           token: ${{ secrets.GITHUB_TOKEN }}
-          body: TODO New Release.

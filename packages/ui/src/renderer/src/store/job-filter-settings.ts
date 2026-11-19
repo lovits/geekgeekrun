@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 
 export const useJobFilterSettings = defineStore('job-filter-settings', () => {
   const regexFilters = ref<Record<string, boolean>>({})
@@ -22,7 +23,11 @@ export const useJobFilterSettings = defineStore('job-filter-settings', () => {
     loading.value = true
     const patch = scope === 'inputSources' ? { inputSources: inputSources.value }
       : { ...(scope !== 'ai' ? { regexFilters: regexFilters.value } : {}), ...(scope !== 'regex' ? { aiFilters: aiFilters.value } : {}) }
-    try { apply(await window.electron.ipcRenderer.invoke('save-job-filter-switches', JSON.parse(JSON.stringify(patch)))) }
+    try {
+      const result = await window.electron.ipcRenderer.invoke('save-job-filter-switches', JSON.parse(JSON.stringify(patch)))
+      apply(result)
+      if (result.warning) ElMessage.warning(result.warning)
+    }
     catch (error) { await refresh(); throw error }
     finally { loading.value = false }
   }

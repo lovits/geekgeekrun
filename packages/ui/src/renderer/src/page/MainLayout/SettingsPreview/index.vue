@@ -9,7 +9,7 @@
         <el-tab-pane label="我的资料与偏好" name="personal">
           <section class="preview-card"><div class="card-heading"><h3>我的简历</h3><el-button v-if="config.resumeFileId" link type="primary" @click="previewResume">预览原始简历</el-button></div><p class="muted">{{ config.resumeFileName || '尚未导入文件' }}</p><el-collapse><el-collapse-item title="查看简历内容" name="resume"><div class="readable-text">{{ config.resumeText || '尚未填写简历内容' }}</div></el-collapse-item></el-collapse></section>
           <section class="preview-card"><div class="card-heading"><h3>手写求职偏好</h3><el-button link type="primary" @click="$router.push('/main-layout/AiJobMatch')">编辑资料与偏好</el-button></div><div class="readable-text">{{ config.preferences || '尚未填写' }}</div></section>
-          <section class="preview-card"><h3>反馈学习的偏好</h3><div class="readable-text">{{ config.learnedPreferences || '尚无反馈。未标记的岗位不会影响偏好。' }}</div></section>
+          <section class="preview-card"><h3>反馈学习的偏好</h3><div class="readable-text">{{ config.learnedPreferences || '尚无学习摘要' }}</div></section>
         </el-tab-pane>
         <el-tab-pane label="模型输入设置" name="input"><p class="muted model-line">当前模型：{{ model.model || '尚未启用' }} · {{ model.reasoningEffort || '默认推理强度' }}</p><JobModelInputPreview v-if="payload" :payload="payload" :saved-context="context" /></el-tab-pane>
       </el-tabs>

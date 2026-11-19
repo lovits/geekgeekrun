@@ -72,7 +72,7 @@ const routes: Array<RouteRecordRaw> = [
     redirect: '/main-layout/GeekAutoStartChatWithBoss',
     children: [
       { path: 'Updates', component: () => import('@renderer/page/MainLayout/Updates.vue'), meta: { title: '自动更新' } },
-      { path: 'ApplicationSimulation', component: () => import('@renderer/page/MainLayout/ApplicationSimulation.vue'), meta: { title: '模拟投递' } },
+      { path: 'ApplicationSimulation', component: () => import('@renderer/page/MainLayout/ApplicationSimulation.vue'), meta: { title: '模拟开聊' } },
       { path: 'CommonJobConditionConfig', component: () => import('@renderer/page/CommonJobConditionConfig/index.vue'), props: { embedded: true }, meta: { title: '公共职位正则筛选' } },
       { path: 'LlmConfig', component: () => import('@renderer/page/LlmConfig/index.vue'), props: { embedded: true }, meta: { title: '大语言模型设置' } },
       { path: 'BrowserPreferences', component: () => import('@renderer/page/BrowserAssistant/index.vue'), props: { embedded: true }, meta: { title: '浏览器偏好' } },
@@ -190,9 +190,9 @@ const router = createRouter({
 
 router.afterEach((to, from) => {
   if (to.meta?.title) {
-    document.title = `${to.meta.title} - GeekGeekRun 牛人快跑`
+    document.title = `${to.meta.title} - GeekGeekRun Pro`
   } else {
-    document.title = `GeekGeekRun 牛人快跑`
+    document.title = `GeekGeekRun Pro`
   }
   gtagRenderer('router_path_changed', {
     from_path: from.fullPath,

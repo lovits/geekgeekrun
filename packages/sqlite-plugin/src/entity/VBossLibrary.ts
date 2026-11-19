@@ -14,17 +14,17 @@ const { ViewEntity, ViewColumn } = typeorm;
 })
 export class VBossLibrary {
   @ViewColumn()
-  encryptBossId: number;
+  encryptBossId!: number;
 
   @ViewColumn()
-  name: string;
+  name!: string;
 
   @ViewColumn()
-  title: string;
+  title!: string;
 
   @ViewColumn()
-  companyName: number | null;
+  companyName!: string | null;
 
   @ViewColumn()
-  encryptCompanyId: number | null;
+  encryptCompanyId!: number | null;
 }

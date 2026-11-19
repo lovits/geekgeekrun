@@ -391,7 +391,7 @@
         </el-form-item> -->
           <el-card class="config-section">
             <el-form-item mb0>
-              <div class="section-title">职位列表筛选条件</div>
+              <div class="section-title">职位列表筛选条件 <JobFilterHelp kind="jobs" /></div>
             </el-form-item>
             <el-form-item
               :key="!formContent.fieldsForUseCommonConfig.expectCompanies"
@@ -414,7 +414,7 @@
                 }"
               >
                 <div>
-                  期望投递公司&nbsp;
+                  期望投递公司 <JobFilterHelp kind="expected" />
                 </div>
                 <el-dropdown
                   v-if="!formContent.fieldsForUseCommonConfig.expectCompanies"
@@ -493,7 +493,7 @@
               }"
             >
               <div mb6px>
-                不期望投递公司<b color-orange>正则</b>&nbsp;
+                不期望投递公司<b color-orange>正则</b> <JobFilterHelp kind="blocked" />
               </div>
               <el-dropdown
                 v-if="!formContent.fieldsForUseCommonConfig.blockCompanyNameRegExpStr"
@@ -630,10 +630,18 @@
               <div data-setting="activity" tabindex="-1" mb0 lh-2em font-size-14px>活跃度</div>
               <el-form-item>
                 <div font-size-12px>允许的 BOSS 活跃度（及更新状态）：</div>
-                <el-select v-model="formContent.markAsNotActiveSelectedTimeRange" style="width: 100%">
-                  <el-option label="不限活跃度" :value="0" />
-                  <el-option v-for="option in activityOptions" :key="option.value" :label="option.label" :value="option.value" />
-                </el-select>
+                <el-slider
+                  v-model="formContent.markAsNotActiveSelectedTimeRange"
+                  :marks="activityMarks"
+                  :max="activityOptions.length"
+                  :step="1"
+                  show-stops
+                  pl50px pr50px pb50px
+                  class="no-active-definition-text-slider"
+                  aria-label="允许的 BOSS 活跃度"
+                  :format-tooltip="formatActivity"
+                  @change="(value) => gtagRenderer('job_not_active_time_range_changed', { value })"
+                />
               </el-form-item>
               <div
                 :style="{
@@ -725,6 +733,7 @@ import { computed, onBeforeUnmount, ref, watch, onUnmounted, onMounted, onActiva
 import { ElForm, ElMessage } from 'element-plus'
 import { ArrowDown, QuestionFilled } from '@element-plus/icons-vue'
 import { useRouter, useRoute } from 'vue-router'
+import JobFilterHelp from '@renderer/features/JobFilterHelp/index.vue'
 import CityChooser from './components/CityChooser.vue'
 import AnyCombineBossRecommendFilter from '@renderer/features/AnyCombineBossRecommendFilter/index.vue'
 import StaticCombineBossRecommendFilter from '@renderer/features/StaticCombineBossRecommendFilter/index.vue'
@@ -1283,6 +1292,13 @@ const isShowSalaryMarkAsNotSuitStrategy = computed(() => {
 })
 
 const activityOptions = activeDescList.slice(2).map((label, index) => ({ label, value: index + 1 }))
+const formatActivity = (value: number) => value === 0 ? '不限活跃度' : activityOptions[value - 1]?.label || ''
+const activityMarks = computed(() => Object.fromEntries(
+  [{ label: '不限活跃度', value: 0 }, ...activityOptions].map(option => [option.value, {
+    label: option.label,
+    style: option.value === formContent.value.markAsNotActiveSelectedTimeRange ? { color: 'var(--el-color-primary)', fontWeight: '600' } : {}
+  }])
+))
 
 function formatJobSourceConfigToFormValue(config: JobSourceConfig[] = []) {
   const typeToNameKey = {
@@ -1374,11 +1390,13 @@ const handleBlockCompanyNameRegExpTemplateClicked =
 const commonJobConditionConfig = ref<Partial<FilterForm>>({})
 const unListenCommonJobConditionConfig = ipcRenderer.on(
   'common-job-condition-config-updated',
-  (_, { config }) => {
+  (_, { config, targetCompanies, blockedCompanies }) => {
     commonJobConditionConfig.value = {
       ...config,
       expectCompanies: config?.expectCompanies?.map((it) => it.trim())?.join(',') ?? ''
     }
+    if (!formContent.value.fieldsForUseCommonConfig.expectCompanies && Array.isArray(targetCompanies)) formContent.value.expectCompanies = targetCompanies.join(',')
+    if (!formContent.value.fieldsForUseCommonConfig.blockCompanyNameRegExpStr && typeof blockedCompanies === 'string') formContent.value.blockCompanyNameRegExpStr = blockedCompanies
   }
 )
 onUnmounted(() => {

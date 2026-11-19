@@ -1,6 +1,6 @@
 <template>
-  <div class="page-wrap flex flex-col of-hidden">
-    <p style="margin: 0 0 10px; font-size: 12px; color: var(--el-text-color-secondary); line-height: 1.7">{{ feedbackAvailable ? '喜欢/不喜欢会更新全局求职偏好的反馈学习部分，影响后续 AI 匹配。手写偏好和硬性条件仍保留。' : '请先配置并启用大模型；喜欢/不喜欢暂不可用。' }}</p>
+  <div class="page-wrap runtime-record-page flex flex-col of-hidden">
+
     <p v-if="savingFeedback">正在保存标记并用大模型更新全局偏好…</p>
     <div v-loading="isTableLoading" class="flex-1 of-hidden">
       <div ref="tableContainerEl" class="h-100% of-hidden">
@@ -10,28 +10,24 @@
           :data="tableData"
           :row-key="getRowKey"
           size="small"
-          table-layout="auto"
+          table-layout="fixed"
           highlight-current-row
         >
-          <ElTableColumn prop="companyName" label="公司" />
-          <ElTableColumn prop="jobName" label="职位名称" />
-          <ElTableColumn prop="positionName" label="职位分类" />
+          <ElTableColumn prop="companyName" label="公司"  min-width="100" show-overflow-tooltip />
+          <ElTableColumn prop="jobName" label="职位名称"  min-width="170" show-overflow-tooltip />
+          <ElTableColumn prop="positionName" label="职位分类"  min-width="85" show-overflow-tooltip />
           <ElTableColumn
             prop="date"
             label="开聊时间"
             :formatter="
               (_row, _col, val) => transformUtcDateToLocalDate(val).format('YYYY-MM-DD HH:mm:ss')
             "
-          />
-          <ElTableColumn prop="experienceName" label="工作经验" />
+           min-width="145" show-overflow-tooltip />
+          <ElTableColumn prop="experienceName" label="工作经验"  min-width="95" show-overflow-tooltip />
           <ElTableColumn
             label="薪资"
-            :formatter="
-              (row, _col, _val) =>
-                `${row.salaryLow}-${row.salaryHigh}k` +
-                (row.salaryMonth ? `* ${row.salaryMonth}薪` : '')
-            "
-          />
+            :formatter="(row) => formatJobSalary(row)"
+           min-width="100" show-overflow-tooltip />
           <ElTableColumn label="我的偏好" :width="170" fixed="right" align="left" header-align="left" class-name="feedback-column">
 
             <template #default="{ row }"><div class="feedback-actions">
@@ -104,6 +100,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatJobSalary } from '@geekgeekrun/utils/job-salary.mjs'
 import RecordExport from '@renderer/features/RecordExport/index.vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElTable, ElTableColumn, ElButton, ElPagination, ElDrawer, ElMessage } from 'element-plus'

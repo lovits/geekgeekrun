@@ -1,5 +1,5 @@
 <template>
-  <div class="page-wrap flex flex-col of-hidden">
+  <div class="page-wrap runtime-record-page flex flex-col of-hidden">
     <div v-loading="isTableLoading" class="flex-1 of-hidden">
       <div ref="tableContainerEl" class="h-100% of-hidden">
         <ElTable
@@ -8,35 +8,32 @@
           :data="tableData"
           :row-key="getRowKey"
           size="small"
-          table-layout="auto"
+          table-layout="fixed"
           highlight-current-row
         >
-          <ElTableColumn prop="companyName" label="公司" />
-          <ElTableColumn prop="jobName" label="职位名称" />
-          <ElTableColumn prop="positionName" label="职位分类" />
+          <ElTableColumn prop="companyName" label="公司"  min-width="100" show-overflow-tooltip />
+          <ElTableColumn prop="jobName" label="职位名称"  min-width="170" show-overflow-tooltip />
+          <ElTableColumn prop="positionName" label="职位分类"  min-width="85" show-overflow-tooltip />
           <ElTableColumn
             prop="date"
             label="标记时间"
             :formatter="
               (_row, _col, val) => transformUtcDateToLocalDate(val).format('YYYY-MM-DD HH:mm:ss')
             "
-          />
-          <ElTableColumn prop="bossName" label="BOSS" width="64" />
+           min-width="145" show-overflow-tooltip />
+          <ElTableColumn prop="bossName" label="BOSS" width="64"  show-overflow-tooltip />
           <ElTableColumn prop="markReason" label="标记原因" width="250">
             <template #default="{ row }">
-              <strong>{{ markReasonTopicMap[row.markReason] || '原因未记录' }}</strong>
-              <pre class="m-0 whitespace-pre-wrap">{{ formatMarkReason(row) }}</pre>
+              <el-tooltip :content="(markReasonTopicMap[row.markReason] || '原因未记录') + '\n' + formatMarkReason(row)" placement="top" :show-after="300" popper-class="runtime-record-reason-tooltip">
+                <div class="record-reason-preview" tabindex="0"><strong>{{ markReasonTopicMap[row.markReason] || '原因未记录' }}</strong> {{ formatMarkReason(row) }}</div>
+              </el-tooltip>
             </template>
           </ElTableColumn>
-          <ElTableColumn prop="experienceName" label="工作经验" />
+          <ElTableColumn prop="experienceName" label="工作经验"  min-width="95" show-overflow-tooltip />
           <ElTableColumn
             label="薪资"
-            :formatter="
-              (row, _col, _val) =>
-                `${row.salaryLow}-${row.salaryHigh}k` +
-                (row.salaryMonth ? `* ${row.salaryMonth}薪` : '')
-            "
-          />
+            :formatter="(row) => formatJobSalary(row)"
+           min-width="100" show-overflow-tooltip />
           <ElTableColumn label="职位信息" fixed="right" :width="120">
             <template #default="{ row }">
               <ElButton
@@ -102,6 +99,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatJobSalary } from '@geekgeekrun/utils/job-salary.mjs'
 import RecordExport from '@renderer/features/RecordExport/index.vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElTable, ElTableColumn, ElButton, ElPagination, ElDrawer } from 'element-plus'

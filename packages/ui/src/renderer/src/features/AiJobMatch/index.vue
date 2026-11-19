@@ -14,7 +14,7 @@
     <el-tabs v-model="activeTab" class="match-tabs">
       <el-tab-pane label="匹配设置" name="settings">
         <section data-setting="scope" tabindex="-1" class="settings-card">
-          <div class="card-heading"><h3>筛选范围</h3><span class="muted">开关立即保存</span></div>
+          <div class="card-heading"><h3>筛选范围</h3></div>
           <JobFilterMode scope="ai" compact />
           <div class="field-label">提供给模型的资料</div>
           <div class="input-grid"><el-checkbox :data-setting="'input-' + item.key" v-for="item in inputOptions" :key="item.key" v-model="settings.inputSources[item.key]" :disabled="settings.loading" @change="saveInputSources">{{ item.label }}</el-checkbox></div>
@@ -37,8 +37,8 @@
             <div class="card-heading"><h3>求职偏好</h3><el-tag size="small" effect="plain">个人设置</el-tag></div>
             <el-form-item data-setting="preferences" label="手写偏好"><el-input v-model="config.preferences" type="textarea" :rows="7" maxlength="20000" /></el-form-item>
             
-            <el-collapse v-model="feedbackSections" class="quiet-collapse"><el-collapse-item name="feedback"><template #title>反馈学习的偏好 <el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 350px; line-height: 1.8">这里是根据你明确标记的“喜欢／不喜欢”整理的偏好总结。程序提取岗位内容的相似特征，参考正负样本，并让已配置的大模型更新总结；未标记的岗位不参与学习。勾选反馈输入后，它会影响后续匹配。这里不能直接编辑；需要主动补充或纠正的偏好请写入“手写偏好”。取消或改变标记会重新整理总结，手写偏好不会被覆盖。</div></template><QuestionFilled @click.stop style="width: 14px; height: 14px; margin-left: 6px" aria-label="反馈学习偏好说明" /></el-tooltip></template>
-              <el-input data-setting="feedback" :model-value="config.learnedPreferences || '尚无反馈。未标记的岗位不影响偏好。'" type="textarea" :rows="4" readonly />
+            <el-collapse v-model="feedbackSections" class="quiet-collapse"><el-collapse-item name="feedback"><template #title>反馈学习的偏好 <el-tag size="small" :type="settings.inputSources.feedback ? 'success' : 'info'" style="margin-left: 6px">{{ settings.inputSources.feedback ? '已启用' : '已关闭' }}</el-tag><el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 350px; line-height: 1.8">根据明确标记，通过 TF-IDF／Rocchio 计算内容偏好，最多调整正负 10 分；大模型生成只读摘要。关闭后仅保存标记，不学习、不影响匹配；重新开启按当前标记重新生成。不能覆盖手写偏好或硬性条件。</div></template><QuestionFilled @click.stop style="width: 14px; height: 14px; margin-left: 6px" aria-label="反馈学习偏好说明" /></el-tooltip></template>
+              <el-input data-setting="feedback" :model-value="config.learnedPreferences || '尚无学习摘要'" type="textarea" :rows="4" readonly />
               
             </el-collapse-item></el-collapse>
           </section>
@@ -51,7 +51,7 @@
             
           </el-collapse-item></el-collapse>
         </section>
-        <div class="save-bar"><span class="muted">{{ saved ? '设置已保存' : '资料与偏好修改后请保存' }}</span><el-button type="primary" :disabled="settings.loading" @click="save">保存匹配设置</el-button></div>
+        <div class="save-bar"><span class="muted">{{ saved ? '设置已保存' : '有未保存修改' }}</span><el-button type="primary" :disabled="settings.loading" @click="save">保存匹配设置</el-button></div>
       </el-tab-pane>
       <el-tab-pane label="岗位测试" name="test">
         <section class="settings-card">
@@ -64,7 +64,7 @@
           <p v-else-if="result" role="status">{{ result }}</p>
         </section>
         <section class="settings-card">
-          <div class="card-heading"><h3>最近评分示例</h3><span class="muted">最近 5 条 · 历史数据</span></div>
+          <div class="card-heading"><h3>最近评分示例</h3></div>
           <el-table v-if="examples.length" :data="examples" style="width: 100%" table-layout="fixed">
             <el-table-column label="岗位" min-width="200"><template #default="scope"><b>{{ scope.row.jobName }}</b><div class="muted">{{ scope.row.company }}</div></template></el-table-column>
             <el-table-column prop="score" label="分数" width="70" />
@@ -138,7 +138,7 @@ function briefReason(reason: string) { return reason?.length > 55 ? reason.slice
 function showDetails(row: any) { selectedResult.value = row; detailsVisible.value = true }
 
 const modelInfo = ref({ provider: '读取中', model: '', account: '', reasoningEffort: '' })
-const inputOptions = [{key: 'activity', label: 'BOSS活跃度（沿用自动开聊设置）'}, {key: 'resume', label: '我的简历内容'}, {key: 'preferences', label: '我的求职偏好'}, {key: 'regexRules', label: '公共正则条件'}, {key: 'employmentAndTraversal', label: '求职类型与遍历方式'}, {key: 'pageFilters', label: '城市、经验、学历等条件'}, {key: 'companyRules', label: '公司名单与屏蔽规则'}, {key: 'feedback', label: '喜欢 / 不喜欢反馈'}]
+const inputOptions = [{key: 'activity', label: 'BOSS活跃度（沿用自动开聊设置）'}, {key: 'resume', label: '我的简历内容'}, {key: 'preferences', label: '我的求职偏好'}, {key: 'regexRules', label: '公共正则条件'}, {key: 'employmentAndTraversal', label: '求职类型与遍历方式'}, {key: 'pageFilters', label: '城市、经验、学历等条件'}, {key: 'companyRules', label: '公司名单与屏蔽规则'}, {key: 'feedback', label: '反馈学习（喜欢／不喜欢）'}]
 const inputPreview = ref<Record<string, any> | null>(null)
 const inputPreviewVisible = ref(false)
 const previewLoading = ref(false)
@@ -175,7 +175,7 @@ onMounted(async () => {
   finally { mounted = true }
 })
 async function saveInputSources() {
-  try { await settings.save('inputSources') }
+  try { await settings.save('inputSources'); await refreshInfo() }
   catch (error) { ElMessage.error(String(error)) }
 }
 async function importResume() {
@@ -196,7 +196,8 @@ async function parseText() {
   finally { parsing.value = false }
 }
 async function persist() {
-  await window.electron.ipcRenderer.invoke('save-job-ai-match', JSON.parse(JSON.stringify({ ...config.value, inputSources: settings.inputSources })))
+  const result = await window.electron.ipcRenderer.invoke('save-job-ai-match', JSON.parse(JSON.stringify({ ...config.value, inputSources: settings.inputSources })))
+  if (result?.warning) ElMessage.warning(result.warning)
   saved.value = true
 }
 async function save() {

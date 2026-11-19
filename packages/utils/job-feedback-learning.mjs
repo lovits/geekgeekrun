@@ -16,3 +16,13 @@ export async function learnJobPreferences(records, preferences, model, request =
   if (typeof result.learnedPreferences !== 'string' || !result.learnedPreferences.trim() || result.learnedPreferences.length > 6000) throw new Error('模型没有返回有效的偏好总结')
   return result.learnedPreferences.trim()
 }
+
+export async function feedbackLearningState(config, records, model, request = completes) {
+  if (config.inputSources?.feedback === false || !records.some(item => ['like', 'dislike'].includes(item.value))) return { learnedPreferences: '', feedbackLearnedAt: '', warning: '' }
+  try {
+    const learnedPreferences = await learnJobPreferences(records, config.preferences || '', model, request)
+    return { learnedPreferences, feedbackLearnedAt: learnedPreferences ? new Date().toISOString() : '', warning: '' }
+  } catch {
+    return { learnedPreferences: '', feedbackLearnedAt: '', warning: '自动偏好总结生成失败，旧总结已清空；启用反馈时仍可参考原始标记。' }
+  }
+}

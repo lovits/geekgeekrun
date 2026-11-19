@@ -12,3 +12,10 @@ test('company tags preserve literals, escape new blocked company names and remov
   assert.equal(removeCompany(blocked, 0, true), '^派遣.*$|A\\+B\\(服务\\)')
   assert.equal(removeCompany('[', 1, true), '[')
 })
+
+
+test('BOSS block shortcut preserves individually editable existing company tags', async () => {
+  const { setCompanyListMembership } = await import('@geekgeekrun/utils/company-list-actions.mjs')
+  const result = setCompanyListMembership({ common: { blockCompanyNameRegExpStr: '甲公司|乙公司' } }, '丙+公司', 'blocked', true)
+  assert.deepEqual(companyEntries(result.common.blockCompanyNameRegExpStr, true).map(item => item.label), ['甲公司', '乙公司', '丙+公司'])
+})

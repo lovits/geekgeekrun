@@ -28,7 +28,12 @@
         <el-table-column label="职位信息" width="100" fixed="right"><template #default="{ row }"><div class="row-actions"><el-button link type="primary" size="small" @click="selectedId = row.jobId; details = true">快照</el-button><el-button link type="primary" size="small" :aria-label="'岗位详情：' + row.jobName" @click="openJobDetails(row)">详情</el-button></div></template></el-table-column>
       </el-table>
     </div>
-    <el-drawer v-model="details" title="模拟投递快照" size="min(760px, 92vw)" append-to-body>
+    <div class="flex flex-0 flex-justify-between pt10px pb10px">
+      <div class="w100px" />
+      <el-pagination v-model:current-page="pageNo" v-model:page-size="pageSize" :page-sizes="[100, 200, 300, 400]" small layout="total, sizes, prev, pager, next, jumper" :total="filteredJobs.length" @current-change="tableRef?.setScrollTop(0)" />
+      <div class="w100px" />
+    </div>
+    <el-drawer v-model="details" title="模拟开聊快照" size="min(760px, 92vw)" append-to-body>
       <div v-if="selected" class="job-details"><h3>{{ selected.company }} · {{ selected.jobName }}</h3>
         <p>{{ outcomeLabel(selected) }} · AI {{ selected.score ?? '未评分' }} · {{ selected.aiEvaluated ? selected.model || state?.model || '模型未记录' : '未调用' }}</p>
         <p>{{ selected.city }} · {{ selected.experience }}</p><p>BOSS活跃状态：{{ selected.bossActiveTimeDesc || '未记录，需线上核验' }}</p>
@@ -46,7 +51,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, onUnmounted, ref } from 'vue'
+import { computed, onActivated, onDeactivated, onUnmounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { applicationOutcome, filterApplicationRecords } from '@geekgeekrun/utils/application-outcome.mjs'
 import { transformUtcDateToLocalDate } from '@geekgeekrun/utils/date.mjs'
@@ -55,13 +60,17 @@ const batchSize = ref(10), filter = ref('all'), details = ref(false), selectedId
 const simulationMode = ref('online')
 const scoreFilter = ref('all'), sortBy = ref(''), sortOrder = ref('')
 const tableRef = ref<any>(null)
+const pageNo = ref(1), pageSize = ref(100)
 const runError = computed(() => simulationMode.value === 'online' ? state.value?.online?.runError : state.value?.runError)
 const selected = computed(() => jobs.value.find(job => job.jobId === selectedId.value))
 const outcomeLabels: Record<string, string> = { eligible: '拟沟通', ineligible: '未沟通', delivered: '已沟通' }
 const outcomeLabel = job => outcomeLabels[applicationOutcome(job)] || '未完成判断'
 const batchJobs = computed<any[]>(() => state.value?.jobs?.slice(0, state.value.target) || [])
 const jobs = computed<any[]>(() => state.value?.displayJobs || batchJobs.value)
-const visibleJobs = computed(() => filterApplicationRecords(jobs.value, { outcome: filter.value, score: scoreFilter.value, sortBy: sortBy.value, sortOrder: sortOrder.value }))
+const filteredJobs = computed(() => filterApplicationRecords(jobs.value, { outcome: filter.value, score: scoreFilter.value, sortBy: sortBy.value, sortOrder: sortOrder.value }))
+const visibleJobs = computed(() => filteredJobs.value.slice((pageNo.value - 1) * pageSize.value, pageNo.value * pageSize.value))
+watch([filter, scoreFilter, sortBy, sortOrder, pageSize], () => { pageNo.value = 1; tableRef.value?.setScrollTop(0) })
+watch(() => filteredJobs.value.length, total => { pageNo.value = Math.min(pageNo.value, Math.max(1, Math.ceil(total / pageSize.value))) })
 function handleSortChange({ prop, order }) { sortBy.value = prop || ''; sortOrder.value = order || '' }
 function resetFilters() { filter.value = 'all'; scoreFilter.value = 'all'; sortBy.value = ''; sortOrder.value = ''; tableRef.value?.clearSort() }
 async function openJobDetails(job) {

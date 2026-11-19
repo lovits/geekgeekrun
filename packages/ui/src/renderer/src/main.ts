@@ -6,6 +6,7 @@ import { createPinia } from 'pinia'
 import 'normalize.css'
 import './style/public.scss'
 import 'element-plus/dist/index.css'
+import './style/runtime-records.scss'
 import 'virtual:uno.css'
 import 'animate.css'
 

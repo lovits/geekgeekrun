@@ -1,4 +1,5 @@
 import 'reflect-metadata'
+import { filterApplicationRecords } from '@geekgeekrun/utils/application-outcome.mjs'
 import { parentPort } from 'node:worker_threads'
 import { initDb } from '@geekgeekrun/sqlite-plugin'
 import { type DataSource } from 'typeorm'
@@ -9,7 +10,7 @@ import { VCompanyLibrary } from '@geekgeekrun/sqlite-plugin/dist/entity/VCompany
 import { VBossLibrary } from '@geekgeekrun/sqlite-plugin/dist/entity/VBossLibrary'
 import { VMarkAsNotSuitLog } from '@geekgeekrun/sqlite-plugin/dist/entity/VMarkAsNotSuitLog'
 import { measureExecutionTime } from '../../../../../../common/utils/performance'
-import { PageReq, PagedRes } from '../../../../../../common/types/pagination'
+import { PageReq, PagedRes, JobLibraryReq } from '../../../../../../common/types/pagination'
 import { JobInfoChangeLog } from '@geekgeekrun/sqlite-plugin/dist/entity/JobInfoChangeLog'
 import { AutoStartChatRunRecord } from '@geekgeekrun/sqlite-plugin/dist/entity/AutoStartChatRunRecord'
 
@@ -106,7 +107,7 @@ const payloadHandler = {
       totalItemCount
     }
   },
-  async getJobLibrary({ pageNo, pageSize }: Partial<PageReq> = {}): Promise<PagedRes<VJobLibrary>> {
+  async getJobLibrary({ pageNo, pageSize, companyName, companyId, companyOrder }: Partial<JobLibraryReq> = {}): Promise<PagedRes<VJobLibrary>> {
     if (!pageNo) {
       pageNo = 1
     }
@@ -114,13 +115,41 @@ const payloadHandler = {
       pageSize = 10
     }
 
-    const userRepository = dataSource!.getRepository(VJobLibrary)!
-    const [data, totalItemCount] = await measureExecutionTime(
-      userRepository.findAndCount({
-        skip: (pageNo - 1) * pageSize,
-        take: pageSize
-      })
+    const query = dataSource!.getRepository(VJobLibrary).createQueryBuilder('job')
+    if (companyId) query.andWhere('job.encryptCompanyId = :companyId', { companyId })
+    if (companyName?.trim()) query.andWhere('instr(lower(job.companyName), lower(:companyName)) > 0', { companyName: companyName.trim() })
+    let companySortedIds: string[] | undefined
+    let companySortedCount: number | undefined
+    if (companyOrder) {
+      const rows = await query.clone().select('job.encryptJobId', 'jobId')
+        .addSelect('job.companyName', 'company')
+        .addSelect('COALESCE((SELECT MAX(history.updateTime) FROM job_info_change_log history WHERE history.encryptJobId = job.encryptJobId), job.publishDate)', 'recordedAt')
+        .orderBy('job.encryptJobId', 'ASC').getRawMany()
+      const sorted = filterApplicationRecords(rows, { sortBy: 'company', sortOrder: companyOrder })
+      companySortedCount = sorted.length
+      const pageIds: string[] = sorted.slice((pageNo - 1) * pageSize, pageNo * pageSize).map(row => row.jobId)
+      if (!pageIds.length) return { data: [], pageNo, totalItemCount: sorted.length }
+      companySortedIds = pageIds
+      query.andWhere('job.encryptJobId IN (:...companySortedIds)', { companySortedIds })
+    }
+    query.addSelect('(SELECT history.dataAsJson FROM job_info_change_log history WHERE history.encryptJobId = job.encryptJobId ORDER BY history.updateTime DESC, history.id DESC LIMIT 1)', 'rawJobInfo')
+      .orderBy('job.publishDate', 'DESC').addOrderBy('job.encryptJobId', 'ASC')
+      .skip(companySortedIds ? 0 : (pageNo - 1) * pageSize).take(pageSize)
+    const [{ entities, raw }, totalItemCount] = await measureExecutionTime(
+      Promise.all([query.getRawAndEntities(), companySortedCount ?? query.getCount()])
     )
+    const data: (VJobLibrary & { salaryDesc?: string })[] = entities.map((job, index) => {
+      let salaryDesc: string | undefined
+      try {
+        const source = JSON.parse(raw[index].rawJobInfo || '{}')
+        if (typeof source.salaryDesc === 'string') salaryDesc = source.salaryDesc
+      } catch {}
+      return { ...job, salaryDesc }
+    })
+    if (companySortedIds) {
+      const rank = new Map(companySortedIds.map((id, index) => [id, index]))
+      data.sort((a, b) => rank.get(String(a.encryptJobId))! - rank.get(String(b.encryptJobId))!)
+    }
     return {
       data,
       pageNo,

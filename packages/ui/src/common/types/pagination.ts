@@ -7,3 +7,9 @@ export interface PagedRes<T = unknown> {
   pageNo: number
   totalItemCount: number
 }
+
+export interface JobLibraryReq extends PageReq {
+  companyName?: string
+  companyId?: string
+  companyOrder?: 'ascending' | 'descending' | null
+}
