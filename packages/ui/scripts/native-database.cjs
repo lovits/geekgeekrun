@@ -35,6 +35,12 @@ module.exports = async context => {
     const target = path.join(resources, 'app.asar.unpacked/node_modules/better-sqlite3/build/Release/better_sqlite3.node')
     await fs.mkdir(path.dirname(target), { recursive: true })
     await fs.copyFile(binary, target)
+    if (platform === 'darwin') {
+      const app = path.dirname(path.dirname(resources))
+      await promisify(execFile)('codesign', ['--force', '--deep', '--sign', '-', app])
+      await promisify(execFile)('codesign', ['--verify', '--deep', '--strict', app])
+      console.log(`Ad-hoc signature verified: ${arch}`)
+    }
   } finally { await fs.rm(directory, { recursive: true, force: true }) }
 }
 module.exports.verifyNativeBinary = verifyNativeBinary

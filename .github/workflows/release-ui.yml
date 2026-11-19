@@ -23,6 +23,8 @@ jobs:
           node-version: '22'
       - run: npm install --global pnpm@8.15.9
       - run: pnpm install --frozen-lockfile
+      - name: Install browser for page-control tests
+        run: pnpm exec puppeteer browsers install chrome
       - name: Run matching, configuration and packaging tests
         run: node --test packages/utils/*.test.mjs packages/geek-auto-start-chat-with-boss/*.test.mjs packages/ui/src/renderer/src/features/CompanyTags/*.test.mjs packages/ui/src/renderer/src/features/JobFilterSettingsPreview/*.test.mjs packages/ui/src/renderer/src/features/JobModelInputPreview/*.test.mjs packages/ui/scripts/native-database.test.cjs
 
