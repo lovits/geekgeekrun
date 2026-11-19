@@ -1,5 +1,5 @@
 <template>
-  <section class="ai-match-page">
+  <section ref="pageRoot" class="ai-match-page">
     <header class="page-heading">
       <div><h2>AI 模型筛选</h2></div>
       <el-button @click="refreshInfo().catch(error => ElMessage.error(String(error)))">刷新</el-button>
@@ -26,7 +26,7 @@
             <el-button v-if="config.resumeFileName" class="resume-file" link type="primary" :disabled="!config.resumeFileId" :loading="previewing" @click="previewResume">{{ config.resumeFileName }}<span v-if="config.resumeFileId" class="file-action">预览</span></el-button>
             
             <div class="actions"><el-button :loading="importing" @click="importResume">导入并用 AI 解析</el-button><el-button :loading="parsing" @click="parseText">AI 整理文本</el-button></div>
-            <el-form-item label="简历内容"><el-input v-model="config.resumeText" type="textarea" :rows="7" maxlength="80000" /></el-form-item>
+            <el-form-item data-setting="resume" label="简历内容"><el-input v-model="config.resumeText" type="textarea" :rows="7" maxlength="80000" /></el-form-item>
             <el-collapse class="quiet-collapse"><el-collapse-item title="原文与解析记录" name="resume">
               <p>{{ config.resumeParseMethod || '尚无解析记录' }} · {{ config.resumeParseModel || '模型未记录' }}</p>
               <p v-if="config.resumeParsingNotes?.length">待核对：{{ config.resumeParsingNotes.join('；') }}</p>
@@ -35,7 +35,7 @@
           </section>
           <section class="settings-card">
             <div class="card-heading"><h3>求职偏好</h3><el-tag size="small" effect="plain">个人设置</el-tag></div>
-            <el-form-item label="手写偏好"><el-input v-model="config.preferences" type="textarea" :rows="7" maxlength="20000" /></el-form-item>
+            <el-form-item data-setting="preferences" label="手写偏好"><el-input v-model="config.preferences" type="textarea" :rows="7" maxlength="20000" /></el-form-item>
             
             <el-collapse class="quiet-collapse"><el-collapse-item name="feedback"><template #title>反馈学习的偏好 <el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 350px; line-height: 1.8">这里是根据你明确标记的“喜欢／不喜欢”整理的偏好总结。程序提取岗位内容的相似特征，参考正负样本，并让已配置的大模型更新总结；未标记的岗位不参与学习。勾选反馈输入后，它会影响后续匹配。这里不能直接编辑；需要主动补充或纠正的偏好请写入“手写偏好”。取消或改变标记会重新整理总结，手写偏好不会被覆盖。</div></template><QuestionFilled @click.stop style="width: 14px; height: 14px; margin-left: 6px" aria-label="反馈学习偏好说明" /></el-tooltip></template>
               <el-input :model-value="config.learnedPreferences || '尚无反馈。未标记的岗位不影响偏好。'" type="textarea" :rows="4" readonly />
@@ -45,7 +45,7 @@
         </div>
         <section class="settings-card">
           <el-collapse v-model="advancedSections" class="quiet-collapse"><el-collapse-item title="提示词与模型输入" name="advanced">
-            <el-form-item ref="promptSection" label="匹配提示词"><el-input ref="promptInput" v-model="config.customPrompt" type="textarea" :rows="5" maxlength="20000" /></el-form-item>
+            <el-form-item data-setting="prompt" label="匹配提示词"><el-input v-model="config.customPrompt" type="textarea" :rows="5" maxlength="20000" /></el-form-item>
             
             <el-button :loading="previewLoading" @click="previewInput">预览实际模型输入</el-button>
             
@@ -96,19 +96,21 @@ import JobModelInputPreview from '@renderer/features/JobModelInputPreview/index.
 import { useJobFilterSettings } from '@renderer/store/job-filter-settings'
 import { QuestionFilled } from '@element-plus/icons-vue'
 import { ref, onMounted, onActivated, watch, nextTick } from 'vue'
-import { ElMessage, ElInput, ElFormItem } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 const route = useRoute()
 const advancedSections = ref<string[]>([])
-const promptInput = ref<InstanceType<typeof ElInput>>()
-const promptSection = ref<InstanceType<typeof ElFormItem>>()
-async function revealPrompt() {
-  if (route.query.focus !== 'prompt') return
+const pageRoot = ref<HTMLElement>()
+async function revealSetting() {
+  const focus = String(route.query.focus || '')
+  if (!['resume', 'preferences', 'prompt'].includes(focus)) return
+  inputPreviewVisible.value = false
   activeTab.value = 'settings'
-  advancedSections.value = ['advanced']
+  if (focus === 'prompt') advancedSections.value = ['advanced']
   await nextTick()
-  promptSection.value?.$el?.scrollIntoView({ block: 'center' })
-  promptInput.value?.textarea?.focus({ preventScroll: true })
+  const section = pageRoot.value?.querySelector<HTMLElement>(`[data-setting="${focus}"]`)
+  section?.scrollIntoView({ block: 'center' })
+  section?.querySelector<HTMLTextAreaElement>('textarea')?.focus({ preventScroll: true })
 }
 const settings = useJobFilterSettings()
 const config = ref({ enabled: false, resumeFileName: '', resumeFileId: '', resumeText: '', preferences: '', learnedPreferences: '', feedbackLearnedAt: '', resumeSourceText: '', resumeParsingNotes: [] as string[], resumeParseMethod: '', resumeParseModel: '', customPrompt: '', inputSources: { resume: true, preferences: true, employmentAndTraversal: true, regexRules: false, pageFilters: false, companyRules: false, feedback: true } as Record<string, boolean> })
@@ -162,10 +164,10 @@ async function refreshInfo() {
 
 watch(() => ({ resumeFileId: config.value.resumeFileId, resumeText: config.value.resumeText, resumeSourceText: config.value.resumeSourceText, preferences: config.value.preferences, customPrompt: config.value.customPrompt, inputSources: config.value.inputSources }), () => { saved.value = false }, { deep: true })
 let mounted = false
-onActivated(() => { if (mounted) refreshInfo().then(revealPrompt).catch(error => ElMessage.error(String(error))) })
-watch(() => route.query.focus, () => { if (mounted) revealPrompt() })
+onActivated(() => { if (mounted) refreshInfo().then(revealSetting).catch(error => ElMessage.error(String(error))) })
+watch(() => route.query.focus, () => { if (mounted) revealSetting() })
 onMounted(async () => {
-  try { config.value = await window.electron.ipcRenderer.invoke('get-job-ai-match'); await refreshInfo(); await revealPrompt() }
+  try { config.value = await window.electron.ipcRenderer.invoke('get-job-ai-match'); await refreshInfo(); await revealSetting() }
   catch (error) { ElMessage.error(String(error)) }
   finally { mounted = true }
 })

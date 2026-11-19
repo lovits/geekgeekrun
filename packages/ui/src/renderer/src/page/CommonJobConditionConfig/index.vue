@@ -12,7 +12,7 @@
       >
         <section class="settings-card"><h3>筛选范围</h3><JobFilterMode scope="regex" compact /></section>
         <section class="settings-card">
-        <el-form-item prop="expectCompanies" mb0>
+        <el-form-item data-setting="companies" tabindex="-1" prop="expectCompanies" mb0>
           <div
             font-size-14px
             flex
@@ -90,7 +90,7 @@
           </el-form-item>
         </div>
         </section>
-        <section class="settings-card">
+        <section data-setting="regex" tabindex="-1" class="settings-card">
         <div>
           <div
             flex
@@ -269,9 +269,10 @@
 <script setup lang="tsx">
 import CompanyTags from '@renderer/features/CompanyTags/index.vue'
 import JobFilterMode from '@renderer/features/JobFilterMode/index.vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 const { embedded = false } = defineProps<{ embedded?: boolean }>()
 const router = useRouter()
+const route = useRoute()
 import { gtagRenderer as baseGtagRenderer } from '@renderer/utils/gtag'
 import { JobDetailRegExpMatchLogic } from '@geekgeekrun/sqlite-plugin/src/enums'
 import { ArrowDown } from '@element-plus/icons-vue'
@@ -289,7 +290,7 @@ import {
   getRuleOfBlockCompanyNameRegExpStr,
   jobDetailRegExpMatchLogicOptions
 } from '../MainLayout/GeekAutoStartChatWithBoss/common'
-import { computed, ref, onActivated } from 'vue'
+import { computed, ref, onActivated, nextTick, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import expectJobFilterTemplateList from '../MainLayout/GeekAutoStartChatWithBoss/expectJobFilterTemplateList'
 const { ipcRenderer } = window.electron
@@ -372,6 +373,17 @@ async function handleSave() {
   else ipcRenderer.send('common-job-condition-config-done')
 }
 
+async function revealSetting() {
+  const focus = String(route.query.focus || '')
+  if (!['companies', 'regex'].includes(focus)) return
+  await nextTick()
+  const section: HTMLElement | undefined = formRef.value?.$el?.querySelector(`[data-setting="${focus}"]`)
+  const input = section?.querySelector<HTMLTextAreaElement>('textarea')
+  const target = focus === 'regex' && input ? input : section
+  target?.scrollIntoView({ block: 'center' })
+  target?.focus({ preventScroll: true })
+}
+watch(() => route.query.focus, revealSetting)
 async function loadSettings() {
   const res = await ipcRenderer.invoke('fetch-config-file-content')
   const commonJobConditionConfig = res.config?.['common-job-condition-config.json'] ?? {}
@@ -384,6 +396,7 @@ async function loadSettings() {
       }
     }
   })
+  await revealSetting()
 }
 loadSettings()
 onActivated(loadSettings)
