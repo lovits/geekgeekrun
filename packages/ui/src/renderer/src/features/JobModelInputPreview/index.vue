@@ -2,7 +2,7 @@
   <div class="input-preview">
     <div class="preview-banner"><div><strong>本次提供给模型的内容</strong><p>只展示实际勾选的资料；预览不调用模型，不会开聊。</p></div><el-tag effect="plain">{{ payload.currentDate }}</el-tag></div>
     <section class="preview-card">
-      <h3>输入资料 <el-tooltip placement="right" :enterable="false"><template #content><div style="max-width: 340px; line-height: 1.8">这里列出送给模型的资料。勾选的简历、求职偏好、筛选条件、BOSS活跃度和反馈会参与匹配；未勾选的内容不会发送。岗位名称或描述由运行时读取，按 AI 筛选范围提供。此页只是预览，不会调用模型或发送消息。活跃度条件与自动开聊保持一致，未知状态不能当成三日内活跃。</div></template><QuestionFilled style="width: 15px; height: 15px; vertical-align: middle; color: var(--el-text-color-secondary)" aria-label="输入资料说明" /></el-tooltip></h3>
+      <h3>输入资料 <el-tooltip placement="right" :enterable="false"><template #content><div style="max-width: 340px; line-height: 1.8">“输入资料”用于决定哪些资料参与模型匹配。勾选后，这类资料会加入模型输入；取消勾选后，这类资料不会发送给模型。这里预览的是已保存设置，不会调用模型，也不会发出开聊消息。</div></template><QuestionFilled style="width: 15px; height: 15px; vertical-align: middle; color: var(--el-text-color-secondary)" aria-label="输入资料说明" /></el-tooltip></h3>
       <div class="source-list"><el-tag v-for="item in sources" :key="item.key" :type="payload.inputSources?.[item.key] ? 'success' : 'info'" effect="plain">{{ item.label }} · {{ payload.inputSources?.[item.key] ? '已提供' : '未提供' }}</el-tag></div>
       <div class="switch-grid"><div><h4>AI 检查字段</h4><p>{{ selectedFieldsLabel }}</p></div><div><h4>独立正则检查</h4><p>{{ enabledRegexLabel }}</p></div></div>
       

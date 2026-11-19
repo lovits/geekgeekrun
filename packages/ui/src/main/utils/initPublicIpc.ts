@@ -18,6 +18,7 @@ import { registerBrowserAssistantIpc } from '../window/browserAssistantWindow'
 export default function initPublicIpc() {
   registerBrowserAssistantIpc()
   ipcMain.handle('save-common-job-condition-config', async (event, payload, { embedded = false } = {}) => {
+    payload = { ...readConfigFile('common-job-condition-config.json'), ...payload }
     await writeConfigFile('common-job-condition-config.json', payload)
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send('common-job-condition-config-updated', { config: payload })
     if (!embedded) BrowserWindow.fromWebContents(event.sender)?.close()

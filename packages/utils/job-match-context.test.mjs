@@ -72,3 +72,22 @@ test('activity requirement follows the saved automatic chat threshold and input 
  const disabled=matchingPayload({enabled:true,filterContext:context,inputSources:{activity:false}},candidate)
  assert.equal('bossActivity' in disabled,false);assert.equal('activityCutoff' in disabled.filterContext,false)
 })
+
+
+test('moving precise city and salary limits into the task preserves previews and model inputs', async () => {
+ const { matchingPayload } = await import('./ai-job-match.mjs')
+ const shared = { expectCityList: ['上海'], expectSalaryLow: 20, expectSalaryHigh: 35, expectSalaryCalculateWay: 2 }
+ const task = { expectEmploymentType: 1902, fieldsForUseCommonConfig: { city: true, salary: true }, anyCombineRecommendJobFilter: { cityList: ['上海'], salaryList: [404] } }
+ const before = buildJobMatchContext(task, shared)
+ const after = buildJobMatchContext({ ...task, ...shared, fieldsForUseCommonConfig: { city: false, salary: false } }, { ...shared, expectSalaryLow: 1, expectCityList: ['北京'] })
+ assert.deepEqual(after, before)
+ assert.equal(after.salary.unit, '万元/年')
+ const config = { inputSources: { pageFilters: true }, filterContext: after }
+ const payload = matchingPayload(config, { jobInfo: { jobName: '后端实习' } })
+ assert.deepEqual(payload.filterContext.cities, ['上海'])
+ assert.equal(payload.filterContext.salary.low, 20)
+ assert.deepEqual(payload.filterContext.pageFilters.salaryList, [404])
+ config.inputSources.pageFilters = false
+ assert.ok(!('salary' in matchingPayload(config, { jobInfo: {} }).filterContext))
+ assert.ok(!('pageFilters' in matchingPayload(config, { jobInfo: {} }).filterContext))
+})

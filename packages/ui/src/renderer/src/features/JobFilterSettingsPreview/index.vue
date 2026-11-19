@@ -43,7 +43,7 @@ const displayFilter = (key: string, value: any) => {
 const employmentLabel = computed(() => catalog.jobTypeList.find(item => Number(item.code) === Number(props.context.employmentType))?.name || props.context.employmentType || '不限')
 const cityNames = computed(() => displayFilter('cityList', props.context.cities))
 const experienceNames = computed(() => displayFilter('experienceList', props.context.workExperience))
-const salaryLabel = computed(() => `${props.context.salary?.low || '不限'} — ${props.context.salary?.high || '不限'}`)
+const salaryLabel = computed(() => `${props.context.salary?.low || '不限'} — ${props.context.salary?.high || '不限'} ${props.context.salary?.unit || ''}`)
 function openRegex() { router.push('/main-layout/CommonJobConditionConfig') }
 </script>
 <style scoped>

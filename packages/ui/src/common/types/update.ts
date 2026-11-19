@@ -3,5 +3,6 @@ export interface NewReleaseInfo {
   releasePageUrl: string
   assetUrl: string
   assetName: string
+  assetDigest?: string
   releaseNote: string
 }

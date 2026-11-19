@@ -180,6 +180,31 @@
                 </div>
               </div>
             </el-form-item>
+            <el-collapse class="local-check-strategies">
+              <el-collapse-item title="精确复核（可选）" name="exact-checks">
+                <div class="exact-filter-fields">
+                  <el-form-item label="额外城市限制">
+                    <CityChooser v-model="formContent.expectCityList">
+                      <template #default="{ modelValue, showDialog, clearValue }">
+                        <span>{{ Array.isArray(modelValue) ? modelValue.join('、') || '不限' : modelValue || '不限' }}</span>
+                        <el-button size="small" @click="showDialog">选择</el-button>
+                        <el-button v-if="modelValue?.length" size="small" @click="clearValue">清空</el-button>
+                      </template>
+                    </CityChooser>
+                  </el-form-item>
+                  <el-form-item label="精确薪资范围">
+                    <el-select v-model="formContent.expectSalaryCalculateWay" @change="handleExpectSalaryCalculateWayChanged">
+                      <el-option v-for="option in expectSalaryCalculateWayOption" :key="option.value" :label="option.name" :value="option.value" />
+                    </el-select>
+                    <div class="exact-salary-range">
+                      <el-input-number v-model="formContent.expectSalaryLow" :min="0" :step="0.25" controls-position="right" placeholder="不限下限" />
+                      <span>—</span>
+                      <el-input-number v-model="formContent.expectSalaryHigh" :min="0" :step="0.25" controls-position="right" placeholder="不限上限" />
+                    </div>
+                  </el-form-item>
+                </div>
+              </el-collapse-item>
+            </el-collapse>
             <el-collapse v-if="localCityCondition.length || isShowSalaryMarkAsNotSuitStrategy || formContent.expectWorkExpList?.length" class="local-check-strategies">
               <el-collapse-item title="不匹配处理策略" name="local-check-strategies">
                 <div v-if="localCityCondition.length">
@@ -590,24 +615,11 @@
             <div mt16px>
               <div mb0 lh-2em font-size-14px>活跃度</div>
               <el-form-item>
-                <div font-size-12px>认为职位不活跃的时间范围：</div>
-                <el-slider
-                  v-model="formContent.markAsNotActiveSelectedTimeRange"
-                  :marks="noActiveDefinitionMarks"
-                  :max="10"
-                  :step="1"
-                  pl50px
-                  pr50px
-                  pb30px
-                  class="no-active-definition-text-slider"
-                  :format-tooltip="
-                    (v) =>
-                      typeof noActiveDefinitionMarks[v] === 'string'
-                        ? noActiveDefinitionMarks[v]
-                        : noActiveDefinitionMarks[v]?.label
-                  "
-                  @change="(value) => gtagRenderer('job_not_active_time_range_changed', { value })"
-                />
+                <div font-size-12px>允许的 BOSS 活跃度（及更新状态）：</div>
+                <el-select v-model="formContent.markAsNotActiveSelectedTimeRange" style="width: 100%">
+                  <el-option label="不限活跃度" :value="0" />
+                  <el-option v-for="option in activityOptions" :key="option.value" :label="option.label" :value="option.value" />
+                </el-select>
               </el-form-item>
               <div
                 :style="{
@@ -619,7 +631,7 @@
                 }"
               >
                 <el-form-item v-if="formContent.markAsNotActiveSelectedTimeRange > 0" mb0>
-                  <div font-size-12px>当前职位活跃度在如上范围内（即不活跃）时：</div>
+                  <div font-size-12px>BOSS 活跃度不满足上述要求时：</div>
                   <el-select
                     v-model="formContent.jobNotActiveStrategy"
                     @change="(value) => gtagRenderer('job_not_active_strategy_changed', { value })"
@@ -699,6 +711,7 @@ import { computed, onBeforeUnmount, ref, watch, onUnmounted, onMounted } from 'v
 import { ElForm, ElMessage } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
+import CityChooser from './components/CityChooser.vue'
 import AnyCombineBossRecommendFilter from '@renderer/features/AnyCombineBossRecommendFilter/index.vue'
 import StaticCombineBossRecommendFilter from '@renderer/features/StaticCombineBossRecommendFilter/index.vue'
 import { activeDescList } from '@geekgeekrun/geek-auto-start-chat-with-boss/constant.mjs'
@@ -725,6 +738,8 @@ import { RUNNING_STATUS_ENUM } from '../../../../../common/enums/auto-start-chat
 import { useTaskManagerStore } from '@renderer/store'
 import {
   ensureSalaryRangeCorrect,
+  expectSalaryCalculateWayOption,
+  getHandlerForExpectSalaryCalculateWayChanged,
   getRuleOfExpectJobNameRegExpStr,
   getRuleOfExpectJobDescRegExpStr,
   getRuleOfBlockCompanyNameRegExpStr,
@@ -987,6 +1002,13 @@ electron.ipcRenderer.invoke('fetch-config-file-content').then((res) => {
     expectSalaryHigh: res.config['common-job-condition-config.json']?.expectSalaryHigh ?? null,
     expectCityList: res.config['common-job-condition-config.json']?.expectCityList ?? []
   }
+  // Copy legacy shared limits into the only editor before saving them with the task.
+  for (const [flag, keys] of Object.entries({ city: ['expectCityList'], salary: ['expectSalaryCalculateWay', 'expectSalaryLow', 'expectSalaryHigh'] })) {
+    if (formContent.value.fieldsForUseCommonConfig[flag]) {
+      for (const key of keys) formContent.value[key] = commonJobConditionConfig.value[key]
+    }
+    formContent.value.fieldsForUseCommonConfig[flag] = false
+  }
 })
 
 const jobSourceFormItemSectionEl = ref()
@@ -1217,16 +1239,12 @@ const strategyScopeOptionWhenMarkJobNotMatch = [
   }
 ]
 
-const localCityCondition = computed(() => {
-  const source = formContent.value.fieldsForUseCommonConfig.city ? commonJobConditionConfig.value : formContent.value
-  return (source as { expectCityList?: string[] }).expectCityList || []
-})
+const localCityCondition = computed(() => formContent.value.expectCityList || [])
+const handleExpectSalaryCalculateWayChanged = getHandlerForExpectSalaryCalculateWayChanged({ gtagRenderer, formContent })
 
 const salaryMarkAsNotSuitLabelText = computed(() => {
   const textSeg: string[] = []
-  const formContentToUse = !formContent.value.fieldsForUseCommonConfig.salary
-    ? formContent.value
-    : commonJobConditionConfig.value
+  const formContentToUse = formContent.value
   if (formContentToUse.expectSalaryLow) {
     textSeg.push('低于期望薪资下限')
   }
@@ -1237,9 +1255,7 @@ const salaryMarkAsNotSuitLabelText = computed(() => {
 })
 
 const isShowSalaryMarkAsNotSuitStrategy = computed(() => {
-  const formContentToUse = !formContent.value.fieldsForUseCommonConfig.salary
-    ? formContent.value
-    : commonJobConditionConfig.value
+  const formContentToUse = formContent.value
   let flag = Boolean(formContentToUse.expectSalaryHigh || formContentToUse.expectSalaryLow)
 
   if (
@@ -1253,27 +1269,7 @@ const isShowSalaryMarkAsNotSuitStrategy = computed(() => {
   return flag
 })
 
-const noActiveDefinitionMarks = computed(() => {
-  let arr = [...activeDescList]
-  arr.shift()
-  arr.unshift('不筛选')
-  arr = arr.map((it, index) => {
-    if (index <= formContent.value.markAsNotActiveSelectedTimeRange) {
-      if (formContent.value.markAsNotActiveSelectedTimeRange > 0 && index === 0) {
-        return it
-      }
-      return {
-        style: {
-          color: '#1989FA',
-          fontWeight: 700
-        },
-        label: it
-      }
-    }
-    return it
-  })
-  return arr
-})
+const activityOptions = activeDescList.slice(2).map((label, index) => ({ label, value: index + 1 }))
 
 function formatJobSourceConfigToFormValue(config: JobSourceConfig[] = []) {
   const typeToNameKey = {
@@ -1429,6 +1425,9 @@ const fillCommonConfigField = (field) => {
 </script>
 
 <style scoped lang="scss">
+.exact-filter-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.exact-salary-range { display: flex; align-items: center; gap: 8px; margin-top: 8px; width: 100%; }
+.exact-salary-range .el-input-number { flex: 1; min-width: 0; }
 .geek-auto-start-run-with-boss__wrap {
   position: relative;
   width: 100%;

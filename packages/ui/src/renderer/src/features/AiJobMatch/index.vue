@@ -37,7 +37,7 @@
             <div class="card-heading"><h3>求职偏好</h3><el-tag size="small" effect="plain">个人设置</el-tag></div>
             <el-form-item label="手写偏好"><el-input v-model="config.preferences" type="textarea" :rows="7" maxlength="20000" /></el-form-item>
             
-            <el-collapse class="quiet-collapse"><el-collapse-item title="反馈学习的偏好" name="feedback">
+            <el-collapse class="quiet-collapse"><el-collapse-item name="feedback"><template #title>反馈学习的偏好 <el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 350px; line-height: 1.8">这里是根据你明确标记的“喜欢／不喜欢”整理的偏好总结。程序提取岗位内容的相似特征，参考正负样本，并让已配置的大模型更新总结；未标记的岗位不参与学习。勾选反馈输入后，它会影响后续匹配。这里不能直接编辑；需要主动补充或纠正的偏好请写入“手写偏好”。取消或改变标记会重新整理总结，手写偏好不会被覆盖。</div></template><QuestionFilled @click.stop style="width: 14px; height: 14px; margin-left: 6px" aria-label="反馈学习偏好说明" /></el-tooltip></template>
               <el-input :model-value="config.learnedPreferences || '尚无反馈。未标记的岗位不影响偏好。'" type="textarea" :rows="4" readonly />
               
             </el-collapse-item></el-collapse>
@@ -94,6 +94,7 @@
 import JobFilterMode from '@renderer/features/JobFilterMode/index.vue'
 import JobModelInputPreview from '@renderer/features/JobModelInputPreview/index.vue'
 import { useJobFilterSettings } from '@renderer/store/job-filter-settings'
+import { QuestionFilled } from '@element-plus/icons-vue'
 import { ref, onMounted, onActivated, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 const settings = useJobFilterSettings()

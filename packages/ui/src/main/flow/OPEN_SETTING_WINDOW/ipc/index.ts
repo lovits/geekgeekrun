@@ -1,3 +1,4 @@
+import { downloadReleaseAsset } from '@geekgeekrun/utils/update-download.mjs'
 import { readJobFeedback, saveJobFeedback } from '@geekgeekrun/utils/job-feedback.mjs'
 import { hasConfiguredLlm, learnJobPreferences } from '@geekgeekrun/utils/job-feedback-learning.mjs'
 import { codexContextLimits, validateContextWindow } from '@geekgeekrun/utils/codex-context.mjs'
@@ -673,6 +674,16 @@ export default function initIpc() {
   ipcMain.on('close-read-no-reply-reminder-llm-mock-window', () => {
     readNoReplyReminderLlmMockWindow?.close()
     gtag('mock_chat_window_closed')
+  })
+  let updateDownload: Promise<unknown> | null = null
+  ipcMain.handle('download-update', async () => {
+    if (updateDownload) return updateDownload
+    updateDownload = (async () => {
+      const release = await checkUpdateForUi()
+      if (!release) throw new Error('没有可下载的新正式版本')
+      return downloadReleaseAsset(release, path.join(app.getPath('downloads'), 'GeekGeekRun-updates'))
+    })().finally(() => { updateDownload = null })
+    return updateDownload
   })
   ipcMain.handle('check-update', async () => {
     const newRelease = await checkUpdateForUi()

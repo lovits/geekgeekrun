@@ -11,7 +11,7 @@ export function selectReleaseUpdate(releases, currentVersion, platform, arch) {
     if (!semver.gt(version, currentVersion)) continue
     const assets = (release.assets || []).filter(a => a.name.endsWith(extension) && /^https:\/\/github\.com\//.test(a.browser_download_url || ''))
     const asset = assets.find(a => a.name.includes(`_${arch}`) || a.name.includes(`-${arch}`)) || assets.find(a => !/(?:x64|arm64|ia32)/.test(a.name))
-    if (asset) return { releaseVersion: version, releasePageUrl: release.html_url, assetUrl: asset.browser_download_url, assetName: asset.name, releaseNote: release.body || '' }
+    if (asset) return { releaseVersion: version, releasePageUrl: release.html_url, assetUrl: asset.browser_download_url, assetName: asset.name, releaseNote: release.body || '', ...(asset.digest ? { assetDigest: asset.digest } : {}) }
   }
   return null
 }

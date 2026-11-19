@@ -836,10 +836,14 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
       }
     }
 
-    const filterConditions =
+    let filterConditions =
       combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE
         ? formatStaticCombineFilters(staticCombineRecommendJobFilterConditions)
           : combineFiltersWithConstraintsGenerator(anyCombineRecommendJobFilter)
+    if (filterCheckOnly && combineRecommendJobFilterType === CombineRecommendJobFilterType.ANY_COMBINE) {
+      const fields = Object.entries(anyCombineRecommendJobFilter).filter(([, values]) => Array.isArray(values) && values.length)
+      filterConditions = Array.from({ length: Math.max(1, ...fields.map(([, values]) => values.length)) }, (_, index) => Object.fromEntries(fields.map(([key, values]) => [key, [values[index % values.length]]])))
+    }
     let expectJobList
     let filterConditionIndex = -1
     iterateFilterCondition: for (
@@ -920,7 +924,7 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
             condition: filterCondition,
             selectedFilters: await page.evaluate(() => ({
               city: document.querySelector('.filter-condition-inner [ka="switch_city_dialog_open"]')?.textContent.trim(),
-              selections: [...document.querySelectorAll('.filter-condition-inner .condition-filter-select')].map(el => ({
+              selections: [...document.querySelectorAll('.filter-condition-inner .condition-filter-select, .filter-condition-inner .condition-industry-select')].map(el => ({
                 label: el.querySelector('.placeholder-text')?.textContent.trim(),
                 values: [...el.querySelectorAll('.filter-select-dropdown .active')].map(it => it.textContent.trim())
               }))
@@ -1878,7 +1882,7 @@ export async function mainLoop (hooks, { filterCheckOnly = false, simulationLimi
     }
     throw err
   } finally {
-    if (simulation) await closeBrowserWindow()
+    if (simulation || filterCheckOnly) await closeBrowserWindow()
   }
 }
 

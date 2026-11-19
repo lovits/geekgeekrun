@@ -91,240 +91,6 @@
         </div>
         </section>
         <section class="settings-card">
-        <div mt16px>
-          <div font-size-14px mb8px>工作地</div>
-          <div
-            :style="{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: '10px'
-            }"
-          >
-            <el-form-item prop="expectCityList" mb0>
-              <div
-                font-size-12px
-                :style="{
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  width: '100%'
-                }"
-              >
-                <city-chooser v-model="formContent.expectCityList">
-                  <template #default="{ modelValue, showDialog, clearValue }">
-                    <div v-if="modelValue?.length">
-                      <div>当前已选择城市：</div>
-                      <div flex flex-wrap gap-10px>
-                        <el-tag v-for="it in modelValue" :key="it">
-                          {{ it }}
-                        </el-tag>
-                      </div>
-                    </div>
-                    <div v-else>
-                      <div>当前未选择任何期望城市，将不会按照城市进行筛选</div>
-                    </div>
-                    <div
-                      line-height-1
-                      :style="{
-                        marginTop: modelValue?.length ? '10px' : ''
-                      }"
-                    >
-                      <el-button
-                        size="small"
-                        type="primary"
-                        @click="
-                          () => {
-                            // isDialogVisible = true
-                            showDialog()
-                            gtagRenderer('choose_city_entry_button_clicked')
-                          }
-                        "
-                        >选择城市</el-button
-                      >
-                      <el-button
-                        v-if="modelValue?.length"
-                        size="small"
-                        type="danger"
-                        @click="clearValue"
-                        >清空已选择的所有城市</el-button
-                      >
-                    </div>
-                  </template>
-                </city-chooser>
-              </div>
-            </el-form-item>
-          </div>
-        </div>
-        <div class="h-1px bg-#f0f0f0" mt16px mb16px />
-        <div mt16px>
-          <div font-size-14px mb8px>
-            薪资（不限时保留日薪实习和未注明薪资的职位；设置范围时仅比较月薪）
-          </div>
-          <div
-            :style="{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: '10px'
-            }"
-          >
-            <div>
-              <el-form-item prop="expectSalaryLow" mb10px>
-                <div w-full>
-                  <div font-size-12px>薪资筛选方式</div>
-                  <el-select
-                    v-model="formContent.expectSalaryCalculateWay"
-                    @change="handleExpectSalaryCalculateWayChanged"
-                  >
-                    <el-option
-                      v-for="op in expectSalaryCalculateWayOption"
-                      :key="op.value"
-                      :label="op.name"
-                      :value="op.value"
-                      >{{ op.name }}</el-option
-                    >
-                  </el-select>
-                </div>
-              </el-form-item>
-              <el-form-item prop="expectSalaryLow" mb10px>
-                <div>
-                  <div font-size-12px>期望薪资范围</div>
-                  <div>
-                    <el-input-number
-                      v-model="formContent.expectSalaryLow"
-                      controls-position="right"
-                      :min="0"
-                      :step="0.25"
-                      placeholder="不设置"
-                      @change="
-                        () => {
-                          gtagRenderer('expect_salary_low_changed')
-                          ensureSalaryRangeCorrect({ formContent })
-                        }
-                      "
-                    >
-                      <template #prefix>下限</template>
-                      <template #suffix>
-                        <template v-if="formContent.expectSalaryLow">
-                          <template
-                            v-if="
-                              formContent.expectSalaryCalculateWay ===
-                              SalaryCalculateWay.MONTH_SALARY
-                            "
-                            >k</template
-                          >
-                          <template
-                            v-if="
-                              formContent.expectSalaryCalculateWay ===
-                              SalaryCalculateWay.ANNUAL_PACKAGE
-                            "
-                            >W</template
-                          >
-                        </template>
-                      </template>
-                    </el-input-number>
-                    -
-                    <el-input-number
-                      v-model="formContent.expectSalaryHigh"
-                      controls-position="right"
-                      :min="0"
-                      :step="0.25"
-                      placeholder="不设置"
-                      @change="
-                        () => {
-                          gtagRenderer('expect_salary_high_changed')
-                          ensureSalaryRangeCorrect({ formContent })
-                        }
-                      "
-                    >
-                      <template #prefix>上限</template>
-                      <template #suffix>
-                        <template v-if="formContent.expectSalaryHigh">
-                          <template
-                            v-if="
-                              formContent.expectSalaryCalculateWay ===
-                              SalaryCalculateWay.MONTH_SALARY
-                            "
-                            >k</template
-                          >
-                          <template
-                            v-if="
-                              formContent.expectSalaryCalculateWay ===
-                              SalaryCalculateWay.ANNUAL_PACKAGE
-                            "
-                            >W</template
-                          >
-                        </template>
-                      </template>
-                    </el-input-number>
-                  </div>
-                </div>
-              </el-form-item>
-              <el-form-item
-                v-if="
-                  formContent.expectSalaryCalculateWay === SalaryCalculateWay.ANNUAL_PACKAGE &&
-                  (formContent.expectSalaryLow || formContent.expectSalaryHigh)
-                "
-                mb10px
-              >
-                <div>
-                  <div font-size-12px>薪资范围满足以下条件的职位将会被匹配</div>
-                  <div>
-                    <div flex flex-nowrap flex-items-start>
-                      <template
-                        v-for="(mGroup, index) in [
-                          [12, 13, 14, 15, 16, 17, 18],
-                          [19, 20, 21, 22, 23, 24]
-                        ]"
-                        :key="index"
-                      >
-                        <table
-                          :style="{
-                            lineHeight: '1.25em'
-                          }"
-                        >
-                          <tr>
-                            <th
-                              v-for="(text, i) in ['月薪下限', '月薪上限', '']"
-                              :key="i"
-                              :style="{
-                                borderBottom: '2px solid #f0f0f0'
-                              }"
-                            >
-                              {{ text }}
-                            </th>
-                          </tr>
-                          <tr v-for="m in mGroup" :key="m">
-                            <td>
-                              {{
-                                formContent.expectSalaryLow
-                                  ? ((formContent.expectSalaryLow / m) * 10).toFixed(2)
-                                  : '无下限'
-                              }}<small v-if="formContent.expectSalaryLow" class="color-#999 ml-2px"
-                                >k</small
-                              >
-                            </td>
-                            <td>
-                              {{
-                                formContent.expectSalaryHigh
-                                  ? ((formContent.expectSalaryHigh / m) * 10).toFixed(2)
-                                  : '无上限'
-                              }}<small v-if="formContent.expectSalaryHigh" class="color-#999 ml-2px"
-                                >k</small
-                              >
-                            </td>
-                            <td>{{ m }}薪</td>
-                          </tr>
-                        </table>
-                        <div v-if="index !== 1" class="bg-#f0f0f0 w-2px flex-self-stretch"></div>
-                      </template>
-                    </div>
-                  </div>
-                </div>
-              </el-form-item>
-            </div>
-          </div>
-        </div>
-        </section>
-        <section class="settings-card">
         <div>
           <div
             flex
@@ -507,14 +273,11 @@ import { useRouter } from 'vue-router'
 const { embedded = false } = defineProps<{ embedded?: boolean }>()
 const router = useRouter()
 import { gtagRenderer as baseGtagRenderer } from '@renderer/utils/gtag'
-import { JobDetailRegExpMatchLogic, SalaryCalculateWay } from '@geekgeekrun/sqlite-plugin/src/enums'
-import CityChooser from '../MainLayout/GeekAutoStartChatWithBoss/components/CityChooser.vue'
+import { JobDetailRegExpMatchLogic } from '@geekgeekrun/sqlite-plugin/src/enums'
 import { ArrowDown } from '@element-plus/icons-vue'
 
 import {
   getJobDetailRegExpMatchLogicConfig,
-  expectSalaryCalculateWayOption,
-  ensureSalaryRangeCorrect,
   expectCompanyTemplateList,
   blockCompanyNameRegExpTemplateList,
   getHandlerForBlockCompanyNameRegExpTemplateClicked,
@@ -524,8 +287,7 @@ import {
   getRuleOfExpectJobDescRegExpStr,
   getRuleOfExpectJobTypeRegExpStr,
   getRuleOfBlockCompanyNameRegExpStr,
-  jobDetailRegExpMatchLogicOptions,
-  getHandlerForExpectSalaryCalculateWayChanged
+  jobDetailRegExpMatchLogicOptions
 } from '../MainLayout/GeekAutoStartChatWithBoss/common'
 import { computed, ref, onActivated } from 'vue'
 import { ElMessage } from 'element-plus'
@@ -540,14 +302,10 @@ const gtagRenderer = (name, params?: object) => {
 
 const formContent = ref({
   expectCompanies: '',
-  expectCityList: [],
   jobDetailRegExpMatchLogic: JobDetailRegExpMatchLogic.EVERY,
   expectJobNameRegExpStr: '',
   expectJobTypeRegExpStr: '',
   expectJobDescRegExpStr: '',
-  expectSalaryCalculateWay: SalaryCalculateWay.ANNUAL_PACKAGE,
-  expectSalaryHigh: null,
-  expectSalaryLow: null,
   blockCompanyNameRegExpStr: ''
 })
 
@@ -588,11 +346,6 @@ const handleExpectJobFilterTemplateClicked = getHandlerForExpectJobFilterTemplat
   formContent
 })
 
-
-const handleExpectSalaryCalculateWayChanged = getHandlerForExpectSalaryCalculateWayChanged({
-  gtagRenderer,
-  formContent
-})
 
 function handleCancel() {
   //

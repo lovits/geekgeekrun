@@ -18,7 +18,7 @@ export function buildJobMatchContext(boss = {}, common = {}, targets = [], catal
     pageFilters: describeFilters(boss.anyCombineRecommendJobFilter),
     staticFilterGroups: fixed.map(group => Object.fromEntries(Object.entries(group).map(([key, value]) => [key, label(key + 'List', value)]))),
     cities: (use.city ? common : boss).expectCityList || [],
-    salary: { low: (use.salary ? common : boss).expectSalaryLow, high: (use.salary ? common : boss).expectSalaryHigh, note: '未设置上下限代表不限薪资' },
+    salary: { low: (use.salary ? common : boss).expectSalaryLow, high: (use.salary ? common : boss).expectSalaryHigh, calculateWay: (use.salary ? common : boss).expectSalaryCalculateWay || 1, unit: (use.salary ? common : boss).expectSalaryCalculateWay === 2 ? '万元/年' : '千元/月', note: '未设置上下限代表不限薪资' },
     workExperience: boss.expectWorkExpList || [],
     companies: use.expectCompanies ? common.expectCompanies || [] : targets,
     blockedCompaniesRegex: (use.blockCompanyNameRegExpStr ? common : boss).blockCompanyNameRegExpStr || '',

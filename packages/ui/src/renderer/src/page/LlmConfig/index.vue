@@ -12,7 +12,7 @@
           <div v-if="visibleConfigEntries.length > 1" class="model-card-heading"><strong>模型 {{ visibleConfigEntries.findIndex(item => item.index === index) + 1 }}</strong><div class="model-order"><el-button circle size="small" :icon="ArrowUp" aria-label="模型上移" :disabled="index <= visibleConfigEntries[0].index" @click="moveConfigUp(index)" /><el-button circle size="small" :icon="ArrowDown" aria-label="模型下移" :disabled="index >= visibleConfigEntries[visibleConfigEntries.length - 1].index" @click="moveConfigDown(index)" /><el-button circle size="small" :icon="Delete" aria-label="删除备用模型" @click="removeConfig(index)" /></div></div>
           <div v-if="conf.provider === 'codex-cli'" class="account-panel">
             <el-form-item label="Codex 识别方式"><el-radio-group v-model="conf.codexDetectionMode" @change="refreshCodex(conf)"><el-radio value="auto">自动识别</el-radio><el-radio value="manual">手动选择</el-radio></el-radio-group></el-form-item>
-            <el-form-item v-if="conf.codexDetectionMode === 'manual'" label="Codex 可执行文件"><el-input v-model="conf.codexBinaryPath" placeholder="选择 codex 或 codex.exe"><template #append><el-button @click="chooseCodex(conf)">选择文件</el-button></template></el-input><p class="helper">Mac 示例：/opt/homebrew/bin/codex；Windows 示例：C:\Users\用户名\.local\bin\codex.exe。npm 安装时请选择其目录内的原生 codex.exe，不选 codex.cmd。</p></el-form-item>
+            <el-form-item v-if="conf.codexDetectionMode === 'manual'" label="Codex 可执行文件"><el-input v-model="conf.codexBinaryPath" placeholder="选择 codex 或 codex.exe"><template #append><el-button @click="chooseCodex(conf)">选择文件</el-button></template></el-input><p class="helper">本机自动识别路径：{{ codexAccount.binary || '尚未识别，请点刷新' }}</p><p class="helper">Windows npm 安装示例：C:\Users\用户名\AppData\Roaming\npm\node_modules\@openai\codex\vendor\x86_64-pc-windows-msvc\codex\codex.exe（以本机实际安装目录为准，不选择 codex.cmd）。</p></el-form-item>
 
             <div class="account-summary"><el-tag :type="codexAccount.loggedIn ? 'success' : 'info'" effect="plain">{{ codexAccount.loggedIn ? '已登录' : '未登录' }}</el-tag><span>{{ codexAccount.email || '使用本机 Codex 登录账号' }}</span></div>
             <div class="account-actions"><el-button size="small" @click="refreshCodex">刷新账号与模型</el-button><el-button size="small" :loading="testingCodex" @click="testCodex(conf)">测试连接</el-button></div>
@@ -110,6 +110,7 @@ function contextLimits(model: string) { return codexModels.value.find(it => it.i
 function reasoningOptions(model: string) { return (codexModels.value.find(it => it.id === model)?.supportedReasoningEfforts || []).filter(item => ['low', 'medium', 'high', 'xhigh', 'max'].includes(item.reasoningEffort)) }
 async function refreshCodex(settings?: any) {
   const config = settings?.provider ? settings : formContent.value.find(it => it.provider === 'codex-cli') || {}
+  if (config.codexDetectionMode === 'manual' && !config.codexBinaryPath) config.codexBinaryPath = codexAccount.value.binary || ''
   try { codexAccount.value = await electron.ipcRenderer.invoke('codex-status', JSON.parse(JSON.stringify(config))) }
   catch(error) { codexAccount.value = { loggedIn: false, email: '', binary: config.codexBinaryPath || '', loginMethod: '识别失败' }; codexModels.value = []; modelListError.value = String(error); return }
   modelListError.value = ''
