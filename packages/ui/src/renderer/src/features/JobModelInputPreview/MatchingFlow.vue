@@ -4,15 +4,17 @@
     <div class="input-columns">
       <div v-for="panel in panels" :key="panel.key" class="input-panel">
         <template v-for="(column, index) in panel.columns" :key="column.title">
-          <div v-if="index" class="screening-stage"><span aria-hidden="true">↓</span><button type="button" @click="openSetting('regexRules')">程序／正则筛选 ↗</button><span aria-hidden="true">↓</span></div>
+          <div v-if="index" class="screening-stage"><span>筛选通过</span><span aria-hidden="true">↓</span></div>
           <section class="input-column">
             <h4>{{ column.title }}</h4>
-            <div v-for="enabled in [true, false]" :key="String(enabled)" class="input-group" :aria-label="column.title + (enabled ? '已启用' : '未启用')">
-              <div class="group-heading">{{ enabled ? column.before ? '已启用 · 用于前置筛选' : '已启用 · 送入模型' : column.before ? '未启用 · 不作前置筛选' : '未启用 · 不送模型' }}</div>
-              <button type="button" v-for="item in column.items.filter(value => value.enabled === enabled)" :key="item.key" class="input-node" :class="{ enabled: item.enabled }" :data-stage="column.before ? 'before' : 'model'" :data-input="item.key" :data-enabled="item.enabled" :title="item.note" @click="openSetting(item.key, column.before)">
-                <span class="state-dot" /><span>{{ item.label }}{{ ' ↗' }}</span>
+            <div class="group-grid">
+              <button v-for="group in column.groups" :key="group.key" type="button" class="setting-group" :class="['state-' + group.state, 'capability-' + group.capability, { 'has-members': group.items.length > 1 }]" :data-stage="column.before ? 'before' : 'model'" :data-input="group.key" :data-state="group.state" @click="openSetting(group.action, column.before)">
+                <span class="group-title"><strong>{{ group.label }}</strong><span class="group-arrow" aria-hidden="true">↗</span></span>
+                <span class="group-status">{{ group.capability === 'unavailable' ? '未接入 AI' : group.capability === 'fixed' ? flow.aiEnabled ? '固定提供' : '固定提供 · AI 未启用' : stateLabels[group.state] }}</span>
+                <span v-if="group.items.length > 1" class="member-list">
+                  <span v-for="item in group.items" :key="item.key" class="member" :class="{ enabled: item.enabled }" :data-member="item.key" :data-enabled="item.enabled" :title="item.label + (item.enabled ? '：已启用' : '：未启用')">{{ item.enabled ? '✓' : '–' }} {{ item.label }}</span>
+                </span>
               </button>
-              <p v-if="!column.items.some(value => value.enabled === enabled)" class="empty-group">无</p>
             </div>
           </section>
         </template>
@@ -69,22 +71,24 @@ async function openSetting(key: string, before = false) {
   await nextTick()
   infoPanel.value?.scrollIntoView({ block: 'center' }); infoPanel.value?.focus({ preventScroll: true })
 }
-import { jobMatchFlow } from './flow-state.mjs'
+import { jobMatchFlow, groupFlowInputs } from './flow-state.mjs'
+const stateLabels: Record<string, string> = { enabled: '已启用', mixed: '部分启用', disabled: '未启用' }
 const props = defineProps<{ payload: Record<string, any>; savedContext?: Record<string, any> }>()
 const flow = computed(() => jobMatchFlow(props.payload, props.savedContext))
 const panels = computed(() => [
-  { key: 'personal', columns: [{ title: '我的输入', before: false, items: flow.value.personal.filter(item => !['prompt', 'system'].includes(item.key)) }] },
-  { key: 'jobs', columns: [{ title: '筛选前岗位字段', before: true, items: flow.value.beforeBoss }, { title: '筛选后送给 AI 的字段', before: false, items: flow.value.boss }] }
+  { key: 'personal', columns: [{ title: '我的输入', before: false, groups: groupFlowInputs(flow.value.personal.filter(item => !['prompt', 'system'].includes(item.key)), 'personal') }] },
+  { key: 'jobs', columns: [{ title: '筛选前岗位字段', before: true, groups: groupFlowInputs(flow.value.beforeBoss, 'before') }, { title: '筛选后送给 AI 的字段', before: false, groups: groupFlowInputs(flow.value.boss, 'after') }] }
 ])
 </script>
 <style scoped>
-.matching-flow { margin-bottom: 16px; background: var(--el-bg-color); }
-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; } h3 { font-size: 16px; margin: 0; font-weight: 600; } h4 { font-size: 14px; margin: 0 0 14px; } .legend { display: flex; gap: 12px; color: var(--el-text-color-placeholder); font-size: 12px; white-space: nowrap; }.on { color: var(--el-color-success); }
-.screening-stage { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; padding: 10px; margin-bottom: 14px; border-radius: 6px; background: var(--el-fill-color-light); font-size: 12px; }.screening-stage button { border: 0; background: transparent; padding: 0; font: inherit; color: var(--el-color-primary); cursor: pointer; }.screening-stage button:hover { text-decoration: underline; }
-.info-panel { border: 1px solid var(--el-border-color-light); padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 13px; line-height: 1.8; }.info-panel p { margin: 0; }
-.instructions { margin-top: 16px; border: 1px solid var(--el-border-color-light); border-radius: 8px; padding: 0 12px; }.readonly-label { margin-left: 12px; font-size: 12px; color: var(--el-text-color-secondary); }.instruction-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; font-size: 13px; }.score-details { margin-top: 8px; font-size: 13px; }.score-details p { color: var(--el-text-color-secondary); }.score-details dt { font-weight: 600; margin-top: 8px; }.score-details dd { margin: 4px 0 0; }.screening-stage { flex-direction: column; gap: 4px; margin: 6px 0; padding: 0; background: transparent; }
-.input-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }.input-column { min-width: 0; padding: 16px; border: 1px solid var(--el-border-color-lighter); border-radius: 10px; background: var(--el-fill-color-extra-light); }.input-group { display: flex; flex-wrap: wrap; gap: 5px; }.input-group + .input-group { margin-top: 12px; }.group-heading { flex-basis: 100%; font-size: 11px; color: var(--el-text-color-secondary); margin-bottom: 6px; }
-.input-node { display: flex; align-items: center; gap: 8px; padding: 4px 7px; margin-top: 0; border: 1px solid var(--el-border-color-light); background: var(--el-fill-color-light); color: var(--el-text-color-secondary); border-radius: 6px; font-size: 12px; line-height: 1.6; }.input-node > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }.input-node small { display: none; }.state-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--el-text-color-placeholder); flex-shrink: 0; }.input-node.enabled { background: var(--el-color-success-light-9); border-color: var(--el-color-success-light-5); color: var(--el-color-success-dark-2); }.enabled .state-dot { background: var(--el-color-success); }.empty-group { font-size: 12px; color: var(--el-text-color-placeholder); margin: 0; }
-.merge-arrow { text-align: center; font-size: 28px; line-height: 40px; color: var(--el-text-color-placeholder); }.result-node { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 16px; border: 1px solid var(--el-color-success-light-5); border-radius: 8px; padding: 12px; background: var(--el-color-success-light-9); font-size: 13px; }.result-node.inactive { background: var(--el-fill-color-light); border-color: var(--el-border-color-light); color: var(--el-text-color-secondary); }button.input-node { cursor: pointer; font-family: inherit; }button.input-node:hover { text-decoration: underline; }button.input-node:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 2px; }
-@media (max-width: 700px) { .input-columns { grid-template-columns: 1fr; }header { align-items: flex-start; flex-wrap: wrap; } }
+.matching-flow { color: var(--el-text-color-primary); margin-bottom: 16px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.legend { display: flex; gap: 14px; margin: 0 0 16px; font-size: 12px; color: var(--el-text-color-secondary); }.legend .on { color: var(--el-color-success-dark-2); }
+.input-columns { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 20px; }.input-panel { min-width: 0; }.input-column { padding: 16px; border: 1px solid var(--el-border-color-light); border-radius: 12px; background: var(--el-fill-color-extra-light); }h4 { font-size: 14px; font-weight: 600; margin: 0 0 14px; }
+.group-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }.setting-group { min-width: 0; min-height: 48px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: center; gap: 6px 12px; text-align: left; padding: 10px; border: 1px solid var(--el-border-color-light); border-radius: 9px; background: var(--el-bg-color); color: var(--el-text-color-primary); cursor: pointer; font: inherit; line-height: 1.6; }.setting-group.has-members { grid-column: 1 / -1; }.setting-group:not(.has-members) { grid-template-columns: minmax(0, 1fr); gap: 3px; }.setting-group:hover { border-color: var(--el-color-primary); box-shadow: 0 2px 8px rgba(0,0,0,.04); }.setting-group:focus-visible, .info-panel:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; }.setting-group.state-enabled { border-color: var(--el-color-success-light-5); background: var(--el-color-success-light-9); }.setting-group.capability-unavailable { border-style: dashed; }
+.setting-group.state-disabled { background: var(--el-fill-color-light); color: var(--el-text-color-secondary); }.group-title { display: flex; align-items: start; justify-content: space-between; gap: 8px; }.group-title strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }.group-arrow { color: var(--el-text-color-placeholder); }.group-status { display: block; margin-top: 0; white-space: nowrap; font-size: 12px; color: var(--el-text-color-secondary); }.setting-group.state-enabled .group-status { color: var(--el-color-success-dark-2); }.member-list { display: flex; flex-wrap: wrap; grid-column: 1 / -1; gap: 4px 8px; margin-top: 0; }.member { color: var(--el-text-color-secondary); font-size: 12px; }.member.enabled { color: var(--el-color-success-dark-2); }
+.screening-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--el-text-color-secondary); font-size: 12px; padding: 10px; }.screening-stage span:last-child { font-size: 20px; line-height: 24px; }
+.instructions { margin-top: 20px; padding: 0 14px; border: 1px solid var(--el-border-color-light); border-radius: 10px; }.readonly-label { margin-left: 12px; color: var(--el-text-color-secondary); font-size: 12px; }.instruction-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; font-size: 13px; }.info-panel { border: 1px solid var(--el-border-color-light); border-radius: 10px; padding: 14px; margin-top: 14px; font-size: 13px; line-height: 1.8; }.info-panel p { margin: 8px 0 0; }
+.merge-arrow { text-align: center; font-size: 24px; line-height: 40px; color: var(--el-text-color-placeholder); }.result-node { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 14px; padding: 14px; border: 1px solid var(--el-color-success-light-5); border-radius: 10px; background: var(--el-color-success-light-9); font-size: 13px; }.result-node.inactive { border-color: var(--el-border-color-light); background: var(--el-fill-color-light); color: var(--el-text-color-secondary); }.score-details { margin-top: 8px; font-size: 13px; }.score-details p { color: var(--el-text-color-secondary); }.score-details dt { margin-top: 8px; font-weight: 600; }.score-details dd { margin: 4px 0 0; }
+@media (max-width: 760px) { .input-columns { grid-template-columns: 1fr; }.input-column { padding: 14px; }.group-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); } }
 </style>

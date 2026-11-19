@@ -33,3 +33,29 @@ export function jobMatchFlow(payload = {}, context = {}) {
   ].map(([key, label, enabled]) => ({ key, label, selected: Boolean(enabled), enabled: Boolean(enabled), note: '此处表示是否用于程序前置筛选，与是否发送给 AI 分开设置' }))
   return { aiEnabled, personal, boss, beforeBoss }
 }
+
+export function groupFlowInputs(items, stage) {
+  const definitions = {
+    personal: [
+      ['pageFilters', '职位筛选条件', ['employmentAndTraversal', 'pageFilters'], 'pageFilters'],
+      ['regexRules', '公共职位正则筛选', ['regexRules'], 'regexRules']
+    ],
+    before: [
+      ['pageFilters', '职位筛选条件', ['city', 'salary', 'experience', 'degree', 'industry', 'scale', 'employmentType'], 'pageFilters'],
+      ['regexRules', '公共职位正则筛选', ['jobName', 'postDescription', 'positionName'], 'regexRules'],
+      ['companyRules', '公司名单与屏蔽规则', ['companyRules'], 'companyRules']
+    ],
+    after: [
+      ['aiScope', 'AI 筛选范围', ['jobName', 'postDescription', 'bossActivity'], 'switches'],
+      ['metadata', '岗位基础信息', ['companyCity', 'facts'], 'companyCity']
+    ]
+  }[stage] || []
+  const groups = new Map()
+  for (const item of items) {
+    const definition = definitions.find(([, , keys]) => keys.includes(item.key))
+    const [key, label, , action] = definition || [item.key, item.label, [], item.key]
+    if (!groups.has(key)) groups.set(key, { key, label, action, items: [] })
+    groups.get(key).items.push(item)
+  }
+  return [...groups.values()].map(group => ({ ...group, capability: stage === 'after' && group.key === 'salary' ? 'unavailable' : stage === 'after' && group.key === 'metadata' || stage === 'personal' && ['date', 'switches'].includes(group.key) ? 'fixed' : 'configurable', state: group.items.every(item => item.enabled) ? 'enabled' : group.items.some(item => item.enabled) ? 'mixed' : 'disabled' }))
+}
