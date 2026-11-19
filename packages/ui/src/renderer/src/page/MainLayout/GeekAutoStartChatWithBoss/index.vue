@@ -91,6 +91,18 @@
               <div flex-1>
                 <div class="section-title">
                   职位筛选条件
+                  <el-tooltip placement="top" :enterable="false">
+                    <template #content><div class="filter-help-content">
+                      <p v-if="formContent.combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE">固定组合：按表格从上到下，一行一组，把这一行的城市、薪资、经验、学历、行业和规模设置到 BOSS 页面，再检查该组返回的岗位。</p>
+                      <template v-else>
+                        <p>自由组合：把你选中的选项拆成不同搭配，依次设置到 BOSS 页面，再检查每组返回的岗位。</p>
+                        <p>例如只选三档公司规模：500–999人、1000–9999人、10000人以上，会尝试三种单档、三种两档组合，以及三档一起勾选，并非始终只选一个，也不是始终三个全选。</p>
+                        <p>默认还包含一次全部字段不限的组合。“跳过初始空条件”只跳过这一组；其他组合仍可能不限某些字段。城市、薪资每组最多选一项；经验、学历、规模可多选，行业每组最多三项。</p>
+                      </template>
+                      <p>同一字段多选表示满足其中任一项；一组内不同字段共同生效。每组中的岗位还要通过已启用的公司、正则、活跃度和 AI 筛选。求职类型在每一组单独设置。</p>
+                    </div></template>
+                    <el-button class="setting-help" link aria-label="职位筛选条件说明" @click.stop><el-icon><QuestionFilled /></el-icon></el-button>
+                  </el-tooltip>
                 </div>
                 <div>
                   <div>
@@ -181,9 +193,21 @@
               </div>
             </el-form-item>
             <el-collapse class="local-check-strategies">
-              <el-collapse-item title="精确复核（可选）" name="exact-checks">
+              <el-collapse-item name="exact-checks">
+                <template #title>职位详情复核（可选）
+                  <el-tooltip placement="top" :enterable="false">
+                    <template #content><div class="filter-help-content">这里是在读取岗位后，再按你填写的城市或具体薪资范围复核，不会操作上面的 BOSS 页面筛选。未选择城市、未填写薪资上下限时，这两项不参与复核。通常只使用上面的职位筛选条件即可；只有需要额外把关时才填写。页面筛选和这里的复核都启用时，岗位必须同时通过。</div></template>
+                    <el-button class="setting-help" link aria-label="职位详情复核说明" @click.stop><el-icon><QuestionFilled /></el-icon></el-button>
+                  </el-tooltip>
+                </template>
                 <div class="exact-filter-fields">
-                  <el-form-item label="额外城市限制">
+                  <el-form-item>
+                    <template #label>职位城市复核
+                      <el-tooltip placement="top" :enterable="false">
+                        <template #content><div class="filter-help-content">按岗位实际城市再核对一次，只保留所选城市之一的岗位。例如页面查全国，这里只选上海，就只保留上海岗位；页面查北京，这里只选上海，通常会没有合适结果。留空表示不增加这道限制，不会把页面城市改成全国。</div></template>
+                        <el-button class="setting-help" link aria-label="职位城市复核说明" @click.stop><el-icon><QuestionFilled /></el-icon></el-button>
+                      </el-tooltip>
+                    </template>
                     <CityChooser v-model="formContent.expectCityList">
                       <template #default="{ modelValue, showDialog, clearValue }">
                         <span>{{ Array.isArray(modelValue) ? modelValue.join('、') || '不限' : modelValue || '不限' }}</span>
@@ -192,7 +216,13 @@
                       </template>
                     </CityChooser>
                   </el-form-item>
-                  <el-form-item label="精确薪资范围">
+                  <el-form-item>
+                    <template #label>精确薪资范围
+                      <el-tooltip placement="top" :enterable="false">
+                        <template #content><div class="filter-help-content">BOSS 页面使用固定薪资档位；这里可以填具体月薪（千元）或年薪总包（万元）。岗位薪资区间与填写范围有重叠即可通过。上下限都不填表示不额外限制；填写后，无可比较月薪的日薪或未公开薪资岗位不会通过这项复核。</div></template>
+                        <el-button class="setting-help" link aria-label="精确薪资范围说明" @click.stop><el-icon><QuestionFilled /></el-icon></el-button>
+                      </el-tooltip>
+                    </template>
                     <el-select v-model="formContent.expectSalaryCalculateWay" @change="handleExpectSalaryCalculateWayChanged">
                       <el-option v-for="option in expectSalaryCalculateWayOption" :key="option.value" :label="option.name" :value="option.value" />
                     </el-select>
@@ -709,7 +739,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch, onUnmounted, onMounted } from 'vue'
 import { ElForm, ElMessage } from 'element-plus'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, QuestionFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import CityChooser from './components/CityChooser.vue'
 import AnyCombineBossRecommendFilter from '@renderer/features/AnyCombineBossRecommendFilter/index.vue'
@@ -1425,6 +1455,11 @@ const fillCommonConfigField = (field) => {
 </script>
 
 <style scoped lang="scss">
+.setting-help { margin-left: 6px; padding: 0; color: var(--el-text-color-secondary); vertical-align: middle; }
+.setting-help .el-icon { width: 14px; height: 14px; }
+.filter-help-content { max-width: 440px; line-height: 1.75; }
+.filter-help-content p { margin: 0; }
+.filter-help-content p + p { margin-top: 8px; }
 .exact-filter-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 .exact-salary-range { display: flex; align-items: center; gap: 8px; margin-top: 8px; width: 100%; }
 .exact-salary-range .el-input-number { flex: 1; min-width: 0; }
