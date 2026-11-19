@@ -22,3 +22,17 @@ test('disabled AI sends no inputs; company/city, facts, prompt and system are au
   for (const key of ['companyCity','facts']) assert.equal(on.boss.find(item=>item.key===key).enabled,true)
   for (const key of ['prompt','system','date','switches']) assert.equal(on.personal.find(item=>item.key===key).enabled,true)
 })
+
+test('program-stage switches stay independent from AI fields and input-source switches', () => {
+  const context={pageFilters:{cityList:['上海'],salaryList:[404],experienceList:[108],degreeList:[203],industryList:[100020],scaleList:[304,305,306]},employmentType:'实习',activityCutoff:8}
+  const flow=jobMatchFlow({selectedFields:['postDescription'],inputSources:{pageFilters:false},switches:{regex:{jobName:true,postDescription:false}}},context)
+  assert.equal(flow.beforeBoss.find(item=>item.key==='jobName').enabled,true)
+  assert.equal(flow.boss.find(item=>item.key==='jobName').enabled,false)
+  assert.equal(flow.beforeBoss.find(item=>item.key==='postDescription').enabled,false)
+  assert.equal(flow.boss.find(item=>item.key==='postDescription').enabled,true)
+  for (const key of ['city','salary','experience','degree','industry','scale','employmentType','bossActivity']) assert.equal(flow.beforeBoss.find(item=>item.key===key).enabled,true)
+  assert.equal(flow.personal.find(item=>item.key==='pageFilters').enabled,false)
+  const off=jobMatchFlow({selectedFields:[],switches:{regex:{jobName:true}}},context)
+  assert.equal(off.beforeBoss.find(item=>item.key==='jobName').enabled,true)
+  assert.ok(off.boss.every(item=>!item.enabled))
+})

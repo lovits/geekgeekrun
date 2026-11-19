@@ -87,7 +87,7 @@
                 />
               </div>
             </el-form-item>
-            <el-form-item prop="filter" mt18px mb0px w-full>
+            <el-form-item data-setting="filters" tabindex="-1" prop="filter" mt18px mb0px w-full>
               <div flex-1>
                 <div class="section-title">
                   职位筛选条件
@@ -108,7 +108,7 @@
                   <div>
                     <template v-if="formContent.combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE">
                     <div font-size-12px>求职类型</div>
-                    <el-select v-model="formContent.expectEmploymentType" w-160px>
+                    <el-select data-setting="employmentType" v-model="formContent.expectEmploymentType" w-160px>
                       <el-option
                         v-for="op in conditions.jobTypeList"
                         :key="op.code"
@@ -152,7 +152,7 @@
                       v-model="formContent.anyCombineRecommendJobFilter"
                     >
                       <template #employment-type>
-                    <el-select v-model="formContent.expectEmploymentType" style="width: 100%">
+                    <el-select data-setting="employmentType" v-model="formContent.expectEmploymentType" style="width: 100%">
                       <el-option
                         v-for="op in conditions.jobTypeList"
                         :key="op.code"
@@ -627,7 +627,7 @@
 
             <div class="h-1px bg-#f0f0f0" mt16px mb16px />
             <div mt16px>
-              <div mb0 lh-2em font-size-14px>活跃度</div>
+              <div data-setting="activity" tabindex="-1" mb0 lh-2em font-size-14px>活跃度</div>
               <el-form-item>
                 <div font-size-12px>允许的 BOSS 活跃度（及更新状态）：</div>
                 <el-select v-model="formContent.markAsNotActiveSelectedTimeRange" style="width: 100%">
@@ -721,10 +721,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch, onUnmounted, onMounted } from 'vue'
+import { computed, onBeforeUnmount, ref, watch, onUnmounted, onMounted, onActivated, nextTick } from 'vue'
 import { ElForm, ElMessage } from 'element-plus'
 import { ArrowDown, QuestionFilled } from '@element-plus/icons-vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import CityChooser from './components/CityChooser.vue'
 import AnyCombineBossRecommendFilter from '@renderer/features/AnyCombineBossRecommendFilter/index.vue'
 import StaticCombineBossRecommendFilter from '@renderer/features/StaticCombineBossRecommendFilter/index.vue'
@@ -772,6 +772,19 @@ const gtagRenderer = (name, params?: object) => {
 }
 
 const router = useRouter()
+const route = useRoute()
+async function revealSetting() {
+  const focus = String(route.query.focus || '')
+  if (!['filters', 'activity', 'employmentType', 'cityList', 'salaryList', 'experienceList', 'degreeList', 'industryList', 'scaleList'].includes(focus)) return
+  await nextTick()
+  const root: HTMLElement | undefined = formRef.value?.$el
+  const section = [...(root?.querySelectorAll<HTMLElement>(`[data-setting="${focus}"]`) || [])].find(el => el.getBoundingClientRect().height > 0 && getComputedStyle(el).visibility === 'visible') || root?.querySelector<HTMLElement>('[data-setting="filters"]')
+  section?.scrollIntoView({ block: 'center' })
+  const input = section?.querySelector<HTMLElement>('input, button') || section
+  input?.focus({ preventScroll: true })
+}
+onActivated(revealSetting)
+watch(() => route.query.focus, revealSetting)
 
 type FilterForm = {
   [key: string]: any
@@ -1008,6 +1021,7 @@ electron.ipcRenderer.invoke('fetch-config-file-content').then((res) => {
     }
     formContent.value.fieldsForUseCommonConfig[flag] = false
   }
+  revealSetting()
 })
 
 const jobSourceFormItemSectionEl = ref()

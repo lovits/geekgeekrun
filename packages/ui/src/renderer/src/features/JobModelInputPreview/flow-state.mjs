@@ -1,4 +1,4 @@
-export function jobMatchFlow(payload = {}) {
+export function jobMatchFlow(payload = {}, context = {}) {
   const aiEnabled = Boolean(payload.selectedFields?.length)
   const sources = payload.inputSources || {}
   const item = (key, label, selected, note = '') => ({ key, label, selected: Boolean(selected), enabled: aiEnabled && Boolean(selected), note })
@@ -16,5 +16,20 @@ export function jobMatchFlow(payload = {}) {
     item('bossActivity', 'BOSS 实际活跃状态', sources.activity),
     item('salary', '岗位薪资原文', false, '当前匹配接口不发送该字段；用户填写的薪资条件属于左侧资料')
   ]
-  return { aiEnabled, personal, boss }
+  const regex = payload.switches?.regex || {}
+  const groups = String(context.traversalMode).startsWith('固定') ? context.staticFilterGroups || [] : [context.pageFilters || {}]
+  const chosen = key => groups.some(group => {
+    const value = group[String(context.traversalMode).startsWith('固定') ? key.replace('List', '') : key]
+    return (Array.isArray(value) ? value : [value]).some(it => it != null && it !== '' && it !== 0 && it !== '不限')
+  })
+  const beforeBoss = [
+    ['jobName', '岗位名称', regex.jobName], ['postDescription', '完整岗位描述', regex.postDescription],
+    ['positionName', '职位分类', regex.positionName], ['companyRules', '公司名称', regex.companies || regex.blockedCompanies],
+    ['city', '工作城市', chosen('cityList') || context.cities?.length],
+    ['salary', '薪资', chosen('salaryList') || context.salary?.low || context.salary?.high],
+    ['experience', '工作经验', chosen('experienceList') || context.workExperience?.length],
+    ['degree', '学历', chosen('degreeList')], ['industry', '行业', chosen('industryList')], ['scale', '公司规模', chosen('scaleList')],
+    ['employmentType', '求职类型', context.employmentType], ['bossActivity', 'BOSS 活跃度', context.activityCutoff]
+  ].map(([key, label, enabled]) => ({ key, label, selected: Boolean(enabled), enabled: Boolean(enabled), note: '此处表示是否用于程序前置筛选，与是否发送给 AI 分开设置' }))
+  return { aiEnabled, personal, boss, beforeBoss }
 }

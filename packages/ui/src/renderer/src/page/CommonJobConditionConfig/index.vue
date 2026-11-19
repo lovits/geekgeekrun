@@ -170,7 +170,7 @@
                 <el-form-item mb0 prop="expectJobNameRegExpStr">
                   <div font-size-12px>职位名称正则（不区分大小写）</div>
                   <el-input
-                    v-model="formContent.expectJobNameRegExpStr"
+                    data-setting="jobName" v-model="formContent.expectJobNameRegExpStr"
                     type="textarea"
                     :placeholder="
                       getJobDetailRegExpMatchLogicConfig({ formContent }).inputPlaceholderText
@@ -200,7 +200,7 @@
                     职位类型正则（推荐填写，不区分大小写）
                   </div>
                   <el-input
-                    v-model="formContent.expectJobTypeRegExpStr"
+                    data-setting="positionName" v-model="formContent.expectJobTypeRegExpStr"
                     type="textarea"
                     :placeholder="
                       getJobDetailRegExpMatchLogicConfig({ formContent }).inputPlaceholderText
@@ -228,7 +228,7 @@
                 <el-form-item mb0 prop="expectJobDescRegExpStr">
                   <div font-size-12px>职位描述正则（不区分大小写）</div>
                   <el-input
-                    v-model="formContent.expectJobDescRegExpStr"
+                    data-setting="postDescription" v-model="formContent.expectJobDescRegExpStr"
                     type="textarea"
                     :placeholder="
                       getJobDetailRegExpMatchLogicConfig({ formContent }).inputPlaceholderText
@@ -375,11 +375,11 @@ async function handleSave() {
 
 async function revealSetting() {
   const focus = String(route.query.focus || '')
-  if (!['companies', 'regex'].includes(focus)) return
+  if (!['companies', 'regex', 'jobName', 'positionName', 'postDescription'].includes(focus)) return
   await nextTick()
   const section: HTMLElement | undefined = formRef.value?.$el?.querySelector(`[data-setting="${focus}"]`)
   const input = section?.querySelector<HTMLTextAreaElement>('textarea')
-  const target = focus === 'regex' && input ? input : section
+  const target = focus !== 'companies' && input ? input : section
   target?.scrollIntoView({ block: 'center' })
   target?.focus({ preventScroll: true })
 }

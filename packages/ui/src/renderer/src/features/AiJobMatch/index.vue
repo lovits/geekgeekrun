@@ -13,11 +13,11 @@
     </div>
     <el-tabs v-model="activeTab" class="match-tabs">
       <el-tab-pane label="匹配设置" name="settings">
-        <section class="settings-card">
+        <section data-setting="scope" tabindex="-1" class="settings-card">
           <div class="card-heading"><h3>筛选范围</h3><span class="muted">开关立即保存</span></div>
           <JobFilterMode scope="ai" compact />
           <div class="field-label">提供给模型的资料</div>
-          <div class="input-grid"><el-checkbox v-for="item in inputOptions" :key="item.key" v-model="settings.inputSources[item.key]" :disabled="settings.loading" @change="saveInputSources">{{ item.label }}</el-checkbox></div>
+          <div class="input-grid"><el-checkbox :data-setting="'input-' + item.key" v-for="item in inputOptions" :key="item.key" v-model="settings.inputSources[item.key]" :disabled="settings.loading" @change="saveInputSources">{{ item.label }}</el-checkbox></div>
           
         </section>
         <div class="settings-grid">
@@ -37,8 +37,8 @@
             <div class="card-heading"><h3>求职偏好</h3><el-tag size="small" effect="plain">个人设置</el-tag></div>
             <el-form-item data-setting="preferences" label="手写偏好"><el-input v-model="config.preferences" type="textarea" :rows="7" maxlength="20000" /></el-form-item>
             
-            <el-collapse class="quiet-collapse"><el-collapse-item name="feedback"><template #title>反馈学习的偏好 <el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 350px; line-height: 1.8">这里是根据你明确标记的“喜欢／不喜欢”整理的偏好总结。程序提取岗位内容的相似特征，参考正负样本，并让已配置的大模型更新总结；未标记的岗位不参与学习。勾选反馈输入后，它会影响后续匹配。这里不能直接编辑；需要主动补充或纠正的偏好请写入“手写偏好”。取消或改变标记会重新整理总结，手写偏好不会被覆盖。</div></template><QuestionFilled @click.stop style="width: 14px; height: 14px; margin-left: 6px" aria-label="反馈学习偏好说明" /></el-tooltip></template>
-              <el-input :model-value="config.learnedPreferences || '尚无反馈。未标记的岗位不影响偏好。'" type="textarea" :rows="4" readonly />
+            <el-collapse v-model="feedbackSections" class="quiet-collapse"><el-collapse-item name="feedback"><template #title>反馈学习的偏好 <el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 350px; line-height: 1.8">这里是根据你明确标记的“喜欢／不喜欢”整理的偏好总结。程序提取岗位内容的相似特征，参考正负样本，并让已配置的大模型更新总结；未标记的岗位不参与学习。勾选反馈输入后，它会影响后续匹配。这里不能直接编辑；需要主动补充或纠正的偏好请写入“手写偏好”。取消或改变标记会重新整理总结，手写偏好不会被覆盖。</div></template><QuestionFilled @click.stop style="width: 14px; height: 14px; margin-left: 6px" aria-label="反馈学习偏好说明" /></el-tooltip></template>
+              <el-input data-setting="feedback" :model-value="config.learnedPreferences || '尚无反馈。未标记的岗位不影响偏好。'" type="textarea" :rows="4" readonly />
               
             </el-collapse-item></el-collapse>
           </section>
@@ -100,17 +100,20 @@ import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 const route = useRoute()
 const advancedSections = ref<string[]>([])
+const feedbackSections = ref<string[]>([])
 const pageRoot = ref<HTMLElement>()
 async function revealSetting() {
   const focus = String(route.query.focus || '')
-  if (!['resume', 'preferences', 'prompt'].includes(focus)) return
+  if (!['resume', 'preferences', 'prompt', 'scope', 'feedback', 'ai-jobName', 'ai-postDescription', ...inputOptions.map(item => 'input-' + item.key)].includes(focus)) return
   inputPreviewVisible.value = false
   activeTab.value = 'settings'
   if (focus === 'prompt') advancedSections.value = ['advanced']
+  if (focus === 'feedback') feedbackSections.value = ['feedback']
   await nextTick()
   const section = pageRoot.value?.querySelector<HTMLElement>(`[data-setting="${focus}"]`)
   section?.scrollIntoView({ block: 'center' })
-  section?.querySelector<HTMLTextAreaElement>('textarea')?.focus({ preventScroll: true })
+  const input = section?.querySelector<HTMLElement>('textarea, input, button') || section
+  input?.focus({ preventScroll: true })
 }
 const settings = useJobFilterSettings()
 const config = ref({ enabled: false, resumeFileName: '', resumeFileId: '', resumeText: '', preferences: '', learnedPreferences: '', feedbackLearnedAt: '', resumeSourceText: '', resumeParsingNotes: [] as string[], resumeParseMethod: '', resumeParseModel: '', customPrompt: '', inputSources: { resume: true, preferences: true, employmentAndTraversal: true, regexRules: false, pageFilters: false, companyRules: false, feedback: true } as Record<string, boolean> })

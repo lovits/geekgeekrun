@@ -8,8 +8,8 @@
     </div>
     <div v-if="scope !== 'regex'" style="margin-top: 12px">
       <strong v-if="!compact">AI 模型筛选</strong>
-      <div><el-checkbox v-model="settings.aiFilters.jobName" :disabled="settings.loading" @change="save">AI 筛选岗位名称</el-checkbox></div>
-      <div><el-checkbox v-model="settings.aiFilters.postDescription" :disabled="settings.loading" @change="save">AI 筛选岗位描述</el-checkbox></div>
+      <div><el-checkbox data-setting="ai-jobName" v-model="settings.aiFilters.jobName" :disabled="settings.loading" @change="save">AI 筛选岗位名称</el-checkbox></div>
+      <div><el-checkbox data-setting="ai-postDescription" v-model="settings.aiFilters.postDescription" :disabled="settings.loading" @change="save">AI 筛选岗位描述</el-checkbox></div>
     </div>
     <el-button v-if="scope === 'all'" @click="openRegex">配置公共职位正则筛选</el-button>
     <el-button v-if="scope === 'all'" @click="$router.push('/main-layout/AiJobMatch')">配置 AI 简历和偏好</el-button>
