@@ -6,7 +6,7 @@ import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { downloadReleaseAsset } from './update-download.mjs'
 import { updateCheckDue } from './update-schedule.mjs'
-const release={assetName:'GeekGeekRun_x64_setup.exe',assetUrl:'https://github.com/lovits/geekgeekrun/releases/download/ui-v0.19.0/app.exe',releaseVersion:'0.19.0'}
+const release={assetName:'GeekGeekRun_x64_setup.exe',assetUrl:'https://github.com/lovits/geekgeekrun-pro/releases/download/ui-v0.19.0/app.exe',releaseVersion:'0.19.0'}
 test('automatic checks happen at most every 24 hours while manual checks remain available',()=>{
  const now=Date.parse('2026-11-19T06:00:00Z')
  assert.equal(updateCheckDue('2026-11-19T05:00:00Z',now),false)

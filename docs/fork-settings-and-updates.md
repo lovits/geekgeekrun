@@ -1,6 +1,6 @@
 # Fork 设置与更新
 
-项目：https://github.com/lovits/geekgeekrun 。保留原项目来源与许可证。
+项目：https://github.com/lovits/geekgeekrun-pro 。保留原项目来源与许可证。
 
 ## 输入预览与活跃度
 

@@ -1,11 +1,11 @@
 {
   "name": "geekgeekrun-ui",
   "version": "0.20.0",
-  "description": "BOSS 炸弹 - 自动开聊BOSS，助力每位打工人求职！",
+  "description": "支持正则筛选、AI 匹配、反馈学习和模拟开聊的求职辅助工具",
   "main": "./out/main/index.js",
   "author": "geekgeekrun",
-  "productName": "GeekGeekRun",
-  "homepage": "https://github.com/lovits/geekgeekrun",
+  "productName": "GeekGeekRun Pro",
+  "homepage": "https://github.com/lovits/geekgeekrun-pro",
   "scripts": {
     "start": "node scripts/run-build-sqlite-plugin.mjs && electron-vite preview",
     "dev": "node scripts/run-build-sqlite-plugin.mjs && electron-vite dev",

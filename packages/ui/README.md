@@ -1,34 +1,14 @@
-# ui
+# GeekGeekRun Pro 桌面端
 
-An Electron application with Vue and TypeScript
+基于 Electron、Vue 和 TypeScript。安装、配置、截图与完整操作步骤见 [项目使用指南](../../README.md)。
 
-## Recommended IDE Setup
-
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin)
-
-## Project Setup
-
-### Install
+从仓库根目录执行：
 
 ```bash
-$ pnpm install
+pnpm install --frozen-lockfile
+pnpm --dir packages/ui dev
+pnpm --dir packages/ui typecheck
+pnpm --dir packages/ui build:make-dist-for-current-platform
 ```
 
-### Development
-
-```bash
-$ pnpm dev
-```
-
-### Build
-
-```bash
-# For windows
-$ pnpm build:win
-
-# For macOS
-$ pnpm build:mac
-
-# For Linux
-$ pnpm build:linux
-```
+使用 Node.js 22 与 pnpm 8.15.9。安装包输出到本目录的 `dist`；当前平台构建命令不发布 GitHub Release。跨平台构建与原生数据库检查见 [发布工作流](../../.github/workflows/release-ui.yml)。
