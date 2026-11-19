@@ -24,36 +24,8 @@
           <ElTableColumn prop="bossName" label="BOSS" width="64" />
           <ElTableColumn prop="markReason" label="标记原因" width="250">
             <template #default="{ row }">
-              <template
-                v-if="
-                  [
-                    MarkAsNotSuitReason.BOSS_INACTIVE,
-                    MarkAsNotSuitReason.USER_MANUAL_OPERATION_WITH_UNKNOWN_REASON
-                  ].includes(row.markReason)
-                "
-              >
-                <strong>{{ markReasonTopicMap[row.markReason] }}</strong>
-                <pre class="m-0 of-auto">{{ formatMarkReason(row) }}</pre>
-              </template>
-              <template v-else-if="row.markReason === MarkAsNotSuitReason.JOB_NOT_SUIT">
-                <strong>{{ markReasonTopicMap[row.markReason] }}</strong>
-              </template>
-              <template v-if="row.markReason === MarkAsNotSuitReason.JOB_CITY_NOT_SUIT">
-                <strong>{{ markReasonTopicMap[row.markReason] }}</strong>
-                <pre class="m-0 of-auto">{{ formatMarkReason(row) }}</pre>
-              </template>
-              <template v-if="row.markReason === MarkAsNotSuitReason.JOB_WORK_EXP_NOT_SUIT">
-                <strong>{{ markReasonTopicMap[row.markReason] }}</strong>
-                <pre class="m-0 of-auto">{{ formatMarkReason(row) }}</pre>
-              </template>
-              <template v-if="row.markReason === MarkAsNotSuitReason.JOB_SALARY_NOT_SUIT">
-                <strong>{{ markReasonTopicMap[row.markReason] }}</strong>
-                <pre class="m-0 of-auto">{{ formatMarkReason(row) }}</pre>
-              </template>
-              <template v-if="row.markReason === MarkAsNotSuitReason.COMPANY_NAME_NOT_SUIT">
-                <strong>{{ markReasonTopicMap[row.markReason] }}</strong>
-                <pre class="m-0 of-auto">{{ formatMarkReason(row) }}</pre>
-              </template>
+              <strong>{{ markReasonTopicMap[row.markReason] || '原因未记录' }}</strong>
+              <pre class="m-0 whitespace-pre-wrap">{{ formatMarkReason(row) }}</pre>
             </template>
           </ElTableColumn>
           <ElTableColumn prop="experienceName" label="工作经验" />
@@ -79,7 +51,7 @@
                 type="primary"
                 size="small"
                 @click="handleViewJobOnlineButtonClick(row.encryptJobId)"
-                >线上</ElButton
+                >详情</ElButton
               >
             </template>
           </ElTableColumn>
@@ -111,7 +83,7 @@
         @size-change="getMarkAsNotSuitRecord"
         @current-change="getMarkAsNotSuitRecord"
       />
-      <div class="w100px" />
+      <div class="w100px"><RecordExport scope="unsuitable" /></div>
     </div>
     <ElDrawer v-model="drawVisibleModelValue" size="400px">
       <JobInfoSnapshot
@@ -130,7 +102,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, h } from 'vue'
+import RecordExport from '@renderer/features/RecordExport/index.vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElTable, ElTableColumn, ElButton, ElPagination, ElDrawer } from 'element-plus'
 import { type VMarkAsNotSuitLog } from '@geekgeekrun/sqlite-plugin/src/entity/VMarkAsNotSuitLog'
 import { PageReq, PagedRes } from '../../../../common/types/pagination'
@@ -228,6 +201,11 @@ const markReasonTopicMap = {
 }
 
 function formatMarkReason(row: VMarkAsNotSuitLog) {
+  let saved: any = null
+  try { saved = JSON.parse(row.extInfo) } catch {}
+  if (saved?.reason) return saved.reason
+  if (row.markReason === MarkAsNotSuitReason.JOB_NOT_SUIT) return '历史记录未保存具体排除依据，不能据此判断职责不匹配。'
+  if (row.markReason === MarkAsNotSuitReason.BOSS_INACTIVE && !saved?.bossActiveTimeDesc) return '历史记录未保存BOSS活跃时间，需线上重新核验。'
   switch (row.markReason) {
     case MarkAsNotSuitReason.BOSS_INACTIVE: {
       const extInfo = (() => {

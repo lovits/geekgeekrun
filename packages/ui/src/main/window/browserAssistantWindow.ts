@@ -9,18 +9,9 @@ import { openBrowserDownloadWindow } from '../features/open-browser-download-win
 
 export let browserAssistantWindow: BrowserWindow | null = null
 
-const registerHandleWithWindow = (
-  win: BrowserWindow,
-  ...args: Parameters<typeof ipcMain.handle>
-) => {
-  const [channel, handler] = args
-  ipcMain.handle(channel, handler)
-  win.once('closed', () => ipcMain.removeHandler(channel))
-}
-
 export function createBrowserAssistantWindow(
   opt?: Electron.BrowserWindowConstructorOptions,
-  { autoFind } = {}
+  { autoFind }: { autoFind?: boolean } = {}
 ): BrowserWindow {
   // Create the browser window.
   if (browserAssistantWindow) {
@@ -65,39 +56,12 @@ export function createBrowserAssistantWindow(
     browserAssistantWindow = null
   })
 
-  registerHandleWithWindow(
-    browserAssistantWindow,
-    'get-any-available-puppeteer-executable',
-    async (_, { ignoreCached, noSave } = {}) => {
-      return await getAnyAvailablePuppeteerExecutable({ ignoreCached, noSave })
-    }
-  )
-
-  registerHandleWithWindow(
-    browserAssistantWindow,
-    'get-last-used-and-available-browser',
-    async () => {
-      return await getLastUsedAndAvailableBrowser()
-    }
-  )
-
-  registerHandleWithWindow(
-    browserAssistantWindow,
-    'save-last-used-and-available-browser-info',
-    async (_, payload) => {
-      return await saveLastUsedAndAvailableBrowserInfo(payload)
-    }
-  )
-
-  registerHandleWithWindow(browserAssistantWindow, 'download-browser-with-downloader', async () => {
-    return await openBrowserDownloadWindow({
-      windowOption: {
-        parent: browserAssistantWindow!,
-        modal: true,
-        show: true
-      }
-    })
-  })
-
   return browserAssistantWindow!
+}
+
+export function registerBrowserAssistantIpc() {
+  ipcMain.handle('get-any-available-puppeteer-executable', async (_, { ignoreCached, noSave } = {}) => getAnyAvailablePuppeteerExecutable({ ignoreCached, noSave }))
+  ipcMain.handle('get-last-used-and-available-browser', () => getLastUsedAndAvailableBrowser())
+  ipcMain.handle('save-last-used-and-available-browser-info', (_, payload) => saveLastUsedAndAvailableBrowserInfo(payload))
+  ipcMain.handle('download-browser-with-downloader', event => openBrowserDownloadWindow({ windowOption: { parent: BrowserWindow.fromWebContents(event.sender) || undefined, modal: true, show: true } }))
 }

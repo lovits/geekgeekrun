@@ -118,7 +118,7 @@
 
 <script lang="ts" setup>
 import { ElCheckbox, ElCheckboxGroup, ElMessage } from 'element-plus'
-import { ref, onMounted, onBeforeMount } from 'vue'
+import { ref } from 'vue'
 import { gtagRenderer as baseGtagRenderer } from '@renderer/utils/gtag'
 import { sleep } from '@geekgeekrun/utils/sleep.mjs'
 
@@ -159,9 +159,9 @@ const handleSubmit = () => {
   electron.ipcRenderer.send('first-launch-notice-approve')
   gtagRenderer('submit_done')
 }
-const handleReadmeItemCheckStatusListChange = (value: number[]) => {
+const handleReadmeItemCheckStatusListChange = (value: import('element-plus').CheckboxValueType[]) => {
   value.forEach((it) => {
-    if (unreadItemsAfterClickSubmit.value[it]) {
+    if (typeof it === 'number' && unreadItemsAfterClickSubmit.value[it]) {
       delete unreadItemsAfterClickSubmit.value[it]
     }
   })

@@ -3,7 +3,7 @@ import { daemonEE, sendToDaemon } from '../flow/OPEN_SETTING_WINDOW/connect-to-d
 import { saveAndGetCurrentRunRecord } from '../flow/OPEN_SETTING_WINDOW/utils/db'
 import minimist from 'minimist'
 
-export async function runCommon({ mode }) {
+export async function runCommon({ mode, simulationLimit, simulationRunId }: { mode: string; simulationLimit?: number; simulationRunId?: string }) {
   await sendToDaemon(
     {
       type: 'user-process-register'
@@ -45,6 +45,7 @@ export async function runCommon({ mode }) {
     process.env.NODE_ENV === 'development'
       ? [process.argv[1], `--mode=${mode}`, `--run-record-id=${currentRunRecord?.id || 0}`]
       : [`--mode=${mode}`, `--run-record-id=${currentRunRecord?.id || 0}`]
+  if (simulationLimit != null) args.push(`--simulation-limit=${simulationLimit}`, `--simulation-run-id=${simulationRunId}`)
   await sendToDaemon(
     {
       type: 'start-worker',

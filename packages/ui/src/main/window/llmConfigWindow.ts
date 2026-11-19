@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow } from 'electron'
 import path from 'path'
 
 export let llmConfigWindow: BrowserWindow | null = null
@@ -10,9 +10,11 @@ export function createLlmConfigWindow(
     llmConfigWindow!.show()
   }
   llmConfigWindow = new BrowserWindow({
-    width: 576,
-    height: 410,
-    resizable: false,
+    width: 780,
+    height: 740,
+    minWidth: 540,
+    minHeight: 440,
+    resizable: true,
     show: false,
     autoHideMenuBar: true,
     frame: true,

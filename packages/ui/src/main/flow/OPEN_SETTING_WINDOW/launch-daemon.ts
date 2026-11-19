@@ -7,7 +7,7 @@ import {
 import { randomUUID } from 'node:crypto'
 import { connectToDaemon } from './connect-to-daemon'
 
-export async function ensureIpcPipeName({ isReset } = {}) {
+export async function ensureIpcPipeName({ isReset }: { isReset?: boolean } = {}) {
   if (isReset) {
     await writeStorageFile('ipc-pipe-name', '', { isJson: false })
   }

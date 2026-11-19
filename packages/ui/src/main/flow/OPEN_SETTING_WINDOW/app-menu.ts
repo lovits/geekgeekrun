@@ -1,4 +1,4 @@
-import { app, Menu, MenuItemConstructorOptions, MenuItem } from 'electron'
+import { app, Menu, MenuItemConstructorOptions, MenuItem, BrowserWindow } from 'electron'
 import { openDevTools } from '../../commands'
 
 const isMac = process.platform === 'darwin'
@@ -21,7 +21,7 @@ const template: (MenuItemConstructorOptions | MenuItem)[] = [
             { role: 'quit' }
           ]
         }
-      ]
+      ] as MenuItemConstructorOptions[]
     : []),
   {
     label: 'Edit',
@@ -43,18 +43,18 @@ const template: (MenuItemConstructorOptions | MenuItem)[] = [
               submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }]
             }
           ]
-        : [{ role: 'delete' }, { type: 'separator' }, { role: 'selectAll' }]),
+        : [{ role: 'delete' }, { type: 'separator' }, { role: 'selectAll' }]) as MenuItemConstructorOptions[],
       { type: 'separator' }
     ]
   },
   {
-    role: 'Help',
+    role: 'help',
     submenu: [
       {
         label: '为当前窗口打开调试工具',
         accelerator: 'CommandOrControl+Shift+I',
         click(_, win) {
-          openDevTools(win)
+          if (win instanceof BrowserWindow) openDevTools(win)
         }
       }
     ]

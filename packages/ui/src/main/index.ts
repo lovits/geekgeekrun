@@ -13,7 +13,7 @@ console.log('NODE_ENV:', process.env.NODE_ENV)
 
 // 捕获未处理的 EPIPE 错误
 process.on('uncaughtException', (err) => {
-  if (err?.code === 'EPIPE' || err?.code === 'ERR_STREAM_DESTROYED') {
+  if ((err as NodeJS.ErrnoException)?.code === 'EPIPE' || (err as NodeJS.ErrnoException)?.code === 'ERR_STREAM_DESTROYED') {
     return
   }
   throw err
@@ -27,8 +27,32 @@ const runMode = commandlineArgs['mode']
 
 ;(async () => {
   switch (runMode) {
+    case 'verifyBossFilters': {
+      await app.whenReady()
+      app.dock?.hide()
+      const { getLastUsedAndAvailableBrowser } = await import('./flow/DOWNLOAD_DEPENDENCIES/utils/browser-history')
+      const executable = await getLastUsedAndAvailableBrowser()
+      if (!executable) throw new Error('未配置可用的招聘浏览器')
+      process.env.PUPPETEER_EXECUTABLE_PATH = executable.executablePath
+      const { mainLoop } = await import('@geekgeekrun/geek-auto-start-chat-with-boss/index.mjs')
+      try {
+        const result = await mainLoop({
+          userInfoResponse: {
+            promise: async ({ userInfoResponse }) => console.log('FILTER_CHECK_LOGIN', JSON.stringify({
+              code: userInfoResponse?.code,
+              message: userInfoResponse?.message
+            }))
+          }
+        }, { filterCheckOnly: true })
+        console.log('FILTER_CHECK_RESULT', JSON.stringify(result))
+      } catch (error) {
+        console.error('FILTER_CHECK_FAILED', error instanceof Error ? error.message : String(error))
+      }
+      break
+    }
     // #region internal use
-    case 'geekAutoStartWithBossMain': {
+    case 'geekAutoStartWithBossMain':
+    case 'geekSimulateApplications': {
       const { waitForProcessHandShakeAndRunAutoChat } = await import(
         './flow/GEEK_AUTO_START_CHAT_WITH_BOSS_MAIN/index'
       )

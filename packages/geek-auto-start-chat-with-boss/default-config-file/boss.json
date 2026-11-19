@@ -1,5 +1,6 @@
 {
   "combineRecommendJobFilterType": 1,
+  "expectEmploymentType": 0,
   "anyCombineRecommendJobFilter": {
     "cityList": [],
     "salaryList": [],

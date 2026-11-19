@@ -42,7 +42,7 @@ export async function launchBoss(browser: Browser) {
       page.waitForNavigation({ timeout: 120 * 1000 })
     ])
   } catch (error) {
-    if (error?.message?.startsWith('net::ERR_INTERNET_DISCONNECTED')) {
+    if ((error instanceof Error ? error.message : undefined)?.startsWith('net::ERR_INTERNET_DISCONNECTED')) {
       throw new Error('ERR_INTERNET_DISCONNECTED')
     }
     throw error

@@ -26,7 +26,7 @@ export async function pushCurrentPageScreenshot (page) {
       }
     })
   } catch (err) {
-    if (err?.message?.includes('Session closed')) {
+    if ((err instanceof Error ? err.message : undefined)?.includes('Session closed')) {
       throw new Error(`PAGE_CLOSED`)
     }
     // 截图失败不应影响主流程
@@ -52,7 +52,7 @@ export class PeriodPushCurrentPageScreenshotPlugin {
               await pushCurrentPageScreenshot(page)
             }
             catch (err) {
-              if (err?.message?.includes(`PAGE_CLOSED`)) {
+              if ((err instanceof Error ? err.message : undefined)?.includes(`PAGE_CLOSED`)) {
                 return
               }
             }

@@ -1,0 +1,112 @@
+<template>
+  <div class="simulation-page">
+    <div class="simulation-toolbar">
+      <el-select v-model="simulationMode" size="small" style="width: 120px" :disabled="state?.running || starting"><el-option label="本地职位库" value="local" /><el-option label="BOSS 在线" value="online" /></el-select>
+      <span class="batch-label">每批数量</span>
+      <el-input-number v-model="batchSize" :min="1" :step="1" :precision="0" size="small" :disabled="state?.running || starting" controls-position="right" style="width: 90px" />
+      <el-button size="small" type="primary" plain :loading="starting" :disabled="state?.running || !Number.isSafeInteger(batchSize) || batchSize < 1" @click="start">开始模拟</el-button>
+      <el-button size="small" :loading="loading" @click="refresh">刷新</el-button>
+      <el-button v-if="state?.online?.running" size="small" :loading="starting" @click="stopOnline">停止</el-button>
+      <span v-if="state" class="run-summary">拟沟通 {{ count('eligible') }} · 未沟通 {{ count('ineligible') }} · 已沟通 {{ count('delivered') }}<template v-if="state.running"> · 处理中 {{ simulationMode === 'online' ? state.online?.processed || 0 : completed }}/{{ simulationMode === 'online' ? state.online?.target : batchJobs.length }}</template><template v-else-if="simulationMode === 'online' && state.online"> · 本轮 {{ state.online.processed }}/{{ state.online.target }}</template></span>
+      <div class="list-filters">
+        <el-select v-model="scoreFilter" size="small" aria-label="AI分数筛选" style="width: 120px"><el-option label="AI分数：全部" value="all" /><el-option label="有AI分数" value="scored" /><el-option label="无AI分数" value="unscored" /></el-select>
+        <el-select v-model="filter" size="small" aria-label="沟通状态筛选" style="width: 110px"><el-option label="全部状态" value="all" /><el-option v-for="(label, key) in outcomeLabels" :key="key" :label="label" :value="key" /></el-select>
+        <el-button size="small" @click="resetFilters">重置</el-button>
+      </div>
+    </div>
+    <el-alert v-if="runError" :title="runError" type="error" :closable="false" />
+    <div class="simulation-table">
+      <el-table ref="tableRef" :data="visibleJobs" size="small" table-layout="fixed" row-key="jobId" height="100%" @sort-change="handleSortChange">
+        <el-table-column prop="company" label="公司" sortable="custom" min-width="100" show-overflow-tooltip />
+        <el-table-column prop="jobName" label="岗位" min-width="170" show-overflow-tooltip />
+        <el-table-column prop="positionName" label="职位分类" min-width="85" show-overflow-tooltip />
+        <el-table-column label="沟通状态" width="85"><template #default="{ row }"><el-tag v-if="applicationOutcome(row)" size="small" :type="['eligible', 'delivered'].includes(applicationOutcome(row)) ? 'success' : 'info'" effect="plain">{{ outcomeLabel(row) }}</el-tag><span v-else>—</span></template></el-table-column>
+        <el-table-column prop="score" label="AI分数" sortable="custom" width="85" align="center"><template #default="{ row }">{{ row.score ?? '—' }}</template></el-table-column>
+        <el-table-column prop="experience" label="工作经验" min-width="95" show-overflow-tooltip />
+        <el-table-column label="薪资" min-width="100" show-overflow-tooltip><template #default="{ row }">{{ row.salaryDesc || row.snapshot?.salaryDesc || '—' }}</template></el-table-column>
+        <el-table-column prop="reason" label="原因" sortable="custom" min-width="230"><template #default="{ row }"><el-tooltip :content="row.reason || '—'" placement="top" :show-after="300" popper-class="simulation-reason-tooltip"><div class="reason-preview" tabindex="0">{{ row.reason || '—' }}</div></el-tooltip></template></el-table-column>
+        <el-table-column label="职位信息" width="100" fixed="right"><template #default="{ row }"><div class="row-actions"><el-button link type="primary" size="small" @click="selectedId = row.jobId; details = true">快照</el-button><el-button link type="primary" size="small" :aria-label="'岗位详情：' + row.jobName" @click="openJobDetails(row)">详情</el-button></div></template></el-table-column>
+      </el-table>
+    </div>
+    <el-drawer v-model="details" title="模拟投递快照" size="min(760px, 92vw)" append-to-body>
+      <div v-if="selected" class="job-details"><h3>{{ selected.company }} · {{ selected.jobName }}</h3>
+        <p>{{ outcomeLabel(selected) }} · AI {{ selected.score ?? '未评分' }} · {{ selected.aiEvaluated ? selected.model || state?.model || '模型未记录' : '未调用' }}</p>
+        <p>{{ selected.city }} · {{ selected.experience }}</p><p>BOSS活跃状态：{{ selected.bossActiveTimeDesc || '未记录，需线上核验' }}</p>
+        <p>{{ selected.chattedAt ? '开聊时间' : selected.recordOrigin === 'runtime' ? '记录时间' : '模拟时间' }}：{{ (selected.chattedAt || selected.evaluatedAt || selected.recordedAt) ? transformUtcDateToLocalDate(selected.chattedAt || selected.evaluatedAt || selected.recordedAt).format('YYYY-MM-DD HH:mm:ss') : '未记录' }}</p>
+        <p>BOSS：{{ selected.bossName || selected.snapshot?.bossName || '未记录' }} · BOSS身份：{{ selected.bossTitle || selected.snapshot?.bossTitle || '未记录' }}</p>
+        <p>来源：{{ selected.recordOrigin === 'online-simulation' ? 'BOSS 在线模拟' : selected.recordOrigin === 'runtime' ? '实际运行记录' : '本地职位库模拟' }}</p>
+        <h4>判断原因</h4><p>{{ selected.reason || '尚未处理' }}</p>
+        <template v-if="selected.reviewNotes?.length"><h4>人工复核 · {{ selected.manualRecommendation }}</h4><ul><li v-for="note in selected.reviewNotes" :key="note">{{ note }}</li></ul></template>
+        <h4 v-if="selected.gaps?.length">差异与待确认</h4><ul><li v-for="gap in selected.gaps || []" :key="gap">{{ gap }}</li></ul>
+        <p>规则{{ selected.rulePass == null ? '未检查' : selected.rulePass ? '通过' : '未通过' }} · {{ selected.aiEvaluated ? '已调用AI' : '未调用AI' }}</p>
+        <h4>岗位描述原文</h4><p>{{ selected.description }}</p>
+        <h4>岗位详情链接</h4><el-link class="job-link" type="primary" @click="openJobDetails(selected)">{{ selected.url }}</el-link><p>岗位ID：{{ selected.jobId }}</p>
+      </div>
+    </el-drawer>
+  </div>
+</template>
+<script setup lang="ts">
+import { computed, onActivated, onDeactivated, onUnmounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { applicationOutcome, filterApplicationRecords } from '@geekgeekrun/utils/application-outcome.mjs'
+import { transformUtcDateToLocalDate } from '@geekgeekrun/utils/date.mjs'
+const state = ref<any>(null), loading = ref(false), starting = ref(false)
+const batchSize = ref(10), filter = ref('all'), details = ref(false), selectedId = ref('')
+const simulationMode = ref('online')
+const scoreFilter = ref('all'), sortBy = ref(''), sortOrder = ref('')
+const tableRef = ref<any>(null)
+const runError = computed(() => simulationMode.value === 'online' ? state.value?.online?.runError : state.value?.runError)
+const selected = computed(() => jobs.value.find(job => job.jobId === selectedId.value))
+const outcomeLabels: Record<string, string> = { eligible: '拟沟通', ineligible: '未沟通', delivered: '已沟通' }
+const outcomeLabel = job => outcomeLabels[applicationOutcome(job)] || '未完成判断'
+const batchJobs = computed<any[]>(() => state.value?.jobs?.slice(0, state.value.target) || [])
+const jobs = computed<any[]>(() => state.value?.displayJobs || batchJobs.value)
+const visibleJobs = computed(() => filterApplicationRecords(jobs.value, { outcome: filter.value, score: scoreFilter.value, sortBy: sortBy.value, sortOrder: sortOrder.value }))
+function handleSortChange({ prop, order }) { sortBy.value = prop || ''; sortOrder.value = order || '' }
+function resetFilters() { filter.value = 'all'; scoreFilter.value = 'all'; sortBy.value = ''; sortOrder.value = ''; tableRef.value?.clearSort() }
+async function openJobDetails(job) {
+  try { await window.electron.ipcRenderer.invoke('open-site-with-boss-cookie', { url: job.url }) }
+  catch (error) { ElMessage.error(String(error)) }
+}
+const completed = computed(() => batchJobs.value.filter(job => job.status !== 'pending').length)
+const count = (outcome: string) => jobs.value.filter(job => applicationOutcome(job) === outcome).length
+async function refresh() {
+  if (loading.value) return
+  loading.value = true
+  try { state.value = await window.electron.ipcRenderer.invoke('get-application-simulation'); if (state.value?.online?.running) simulationMode.value = 'online' }
+  catch (error) { ElMessage.error(String(error)) }
+  finally { loading.value = false }
+}
+async function start() {
+  starting.value = true
+  try { state.value = await window.electron.ipcRenderer.invoke('start-application-simulation', { batchSize: batchSize.value, mode: simulationMode.value }) }
+  catch (error) { ElMessage.error(String(error)) }
+  finally { starting.value = false }
+}
+async function stopOnline() {
+  starting.value = true
+  try { state.value = await window.electron.ipcRenderer.invoke('stop-online-application-simulation') }
+  catch (error) { ElMessage.error(String(error)) }
+  finally { starting.value = false }
+}
+let timer: ReturnType<typeof setInterval>
+onActivated(() => { refresh(); clearInterval(timer); timer = setInterval(refresh, 3000) })
+onDeactivated(() => clearInterval(timer))
+onUnmounted(() => clearInterval(timer))
+</script>
+<style scoped>
+.simulation-page { display: flex; flex-direction: column; width: 100%; max-width: 1000px; min-width: 0; min-height: 0; margin: 0 auto; padding: 20px 0 0 20px; box-sizing: border-box; overflow: hidden; color: var(--el-text-color-primary); font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; }
+.simulation-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; flex-shrink: 0; font-size: 12px; }
+.simulation-toolbar .el-button + .el-button { margin-left: 0; }.batch-label, .run-summary { color: var(--el-text-color-secondary); }.run-summary { white-space: nowrap; }
+.list-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }.simulation-table { flex: 1; min-height: 0; overflow: hidden; }
+.job-details { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }.job-details h3 { font-size: 16px; line-height: 1.6; }.job-details h4 { margin-bottom: 8px; }
+.job-link { max-width: 100%; }.job-link :deep(.el-link__inner) { white-space: normal; overflow-wrap: anywhere; }
+.row-actions { display: flex; align-items: center; gap: 10px; }.row-actions .el-button + .el-button { margin-left: 0; }
+.simulation-page :deep(.el-table .cell) { padding: 0 6px; line-height: 18px; }
+.simulation-page :deep(.el-table .el-link) { font-size: 12px; }
+.reason-preview { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; overflow-wrap: anywhere; max-height: 36px; }
+</style>
+
+<style>
+.simulation-reason-tooltip { max-width: min(560px, 80vw); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+</style>

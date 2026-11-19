@@ -1,13 +1,21 @@
+import { codexCompletion } from './codex-request.mjs';
 import OpenAI from "openai";
 
 export async function completes(
   {
+    provider,
+    codexDetectionMode,
+    codexBinaryPath,
     baseURL,
     apiKey,
-    model
+    model,
+    reasoningEffort,
+    contextWindowTokens,
+    maxTokens = 100
   },
   messages
 ) {
+  if (provider === 'codex-cli') return codexCompletion(messages, model, { reasoningEffort, contextWindowTokens, codexDetectionMode, codexBinaryPath });
   const openai = new OpenAI({
     baseURL,
     apiKey,
@@ -17,7 +25,7 @@ export async function completes(
     messages,
     model,
     frequency_penalty: 0,
-    max_tokens: 100,
+    max_tokens: maxTokens,
     temperature: 0.1
   });
 

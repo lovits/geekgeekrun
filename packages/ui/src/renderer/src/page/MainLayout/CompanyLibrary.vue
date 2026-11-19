@@ -46,12 +46,13 @@
         @size-change="getCompanyLibrary"
         @current-change="getCompanyLibrary"
       />
-      <div class="w100px" />
+      <div class="w100px"><RecordExport scope="companies" /></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import RecordExport from '@renderer/features/RecordExport/index.vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElTable, ElTableColumn, ElButton, ElPagination } from 'element-plus'
 import { type VChatStartupLog } from '@geekgeekrun/sqlite-plugin/src/entity/VChatStartupLog'
@@ -66,9 +67,7 @@ const pagination = ref<Omit<PageReq & PagedRes<unknown>, 'data'>>({
   pageSize: pageSizeList.value[0],
   totalItemCount: 0
 })
-const getRowKey = (row: VChatStartupLog) => {
-  return `${row.encryptJobId}@${row.date}`
-}
+
 const tableRef = ref<InstanceType<typeof ElTable>>()
 const isTableLoading = ref(false)
 async function getCompanyLibrary() {

@@ -40,7 +40,7 @@ import { transformUtcDateToLocalDate } from '@geekgeekrun/utils/date.mjs'
 
 defineProps({
   jobInfo: {
-    type: Object as PropType<VChatStartupLog | VMarkAsNotSuitLog>,
+    type: Object as PropType<(VChatStartupLog | VMarkAsNotSuitLog) & { bossTitle?: string }>,
     required: true
   },
   scene: {

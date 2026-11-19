@@ -1,3 +1,4 @@
+import defaultJobAiMatch from './default-config-file/job-ai-match.json' assert {type: 'json'}
 import fs from 'node:fs'
 import fsPromise from 'node:fs/promises'
 import path from 'node:path'
@@ -12,9 +13,10 @@ import defaultBossCookieStorage from './default-storage-file/boss-cookies.json' 
 import defaultBossLocalStorageStorage from './default-storage-file/boss-local-storage.json' assert { type: 'json' }
 import defaultJobNotSuitReasonCodeToTextCacheStorage from './default-storage-file/job-not-suit-reason-code-to-text-cache.json' assert { type: 'json' }
 import defaultCommonJobConditionConfig from './default-config-file/common-job-condition-config.json' assert { type: 'json' }
-export const configFileNameList = ['boss.json', 'dingtalk.json', 'target-company-list.json', 'llm.json', 'common-job-condition-config.json']
+export const configFileNameList = ['job-ai-match.json', 'boss.json', 'dingtalk.json', 'target-company-list.json', 'llm.json', 'common-job-condition-config.json']
 
 const defaultConfigFileContentMap = {
+  'job-ai-match.json': JSON.stringify(defaultJobAiMatch),
   'boss.json': JSON.stringify(defaultBossConf),
   'dingtalk.json': JSON.stringify(defaultDingtalkConf),
   'target-company-list.json': JSON.stringify(defaultTargetCompanyListConf),

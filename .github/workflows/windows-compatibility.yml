@@ -1,0 +1,31 @@
+name: Windows compatibility build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-x64:
+    runs-on: windows-2022
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --global pnpm@8.15.9
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir packages/ui typecheck
+      - run: node --test packages/utils/job-filter-options.test.mjs packages/utils/job-screening.test.mjs packages/utils/application-outcome.test.mjs packages/utils/runtime-export.test.mjs
+      - run: pnpm --dir packages/ui build:win
+      - name: Check packaged Windows database
+        shell: pwsh
+        run: |
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          & ./packages/ui/dist/win-unpacked/geekgeekrun.exe ./packages/ui/scripts/windows-smoke.cjs ./packages/ui/dist/win-unpacked/resources/app.asar
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GeekGeekRun-Windows-x64
+          path: packages/ui/dist/*_setup.exe

@@ -11,8 +11,8 @@ import {
 const runRecordId = minimist(process.argv.slice(2))['run-record-id'] ?? null
 export class CookieInvalidHandlePlugin {
   apply(hooks) {
-    hooks.cookieWillSet.tapPromise('CookieInvalidHandlePlugin', async ({ cookies, browser } = {}) => {
-      let isValid = checkCookieListFormat(cookies)
+    hooks.cookieWillSet.tapPromise('CookieInvalidHandlePlugin', async ({ cookies, browser }: { cookies?: any[]; browser?: import('puppeteer').Browser } = {}) => {
+      let isValid = checkCookieListFormat(cookies ?? [])
       while (!isValid) {
         try {
           browser && (await browser.close())
@@ -38,13 +38,13 @@ export class CookieInvalidHandlePlugin {
           const newCookies = readStorageFile('boss-cookies.json')
           isValid = checkCookieListFormat(newCookies)
           if (isValid) {
-            cookies.length = 0
+            cookies!.length = 0
             for (const cookie of newCookies) {
-              cookies.push(cookie)
+              cookies!.push(cookie)
             }
           }
         } catch (e) {
-          if (e?.message === 'USER_CANCELLED_LOGIN') {
+          if ((e instanceof Error ? e.message : undefined) === 'USER_CANCELLED_LOGIN') {
             sendToDaemon({
               type: 'worker-to-gui-message',
               workerId: process.env.GEEKGEEKRUND_WORKER_ID,
@@ -74,7 +74,7 @@ export class CookieInvalidHandlePlugin {
         }
       })
     })
-    hooks.userInfoResponse.tapPromise('CookieInvalidHandlePlugin', async ({ userInfoResponse, browser } = {}) => {
+    hooks.userInfoResponse.tapPromise('CookieInvalidHandlePlugin', async ({ userInfoResponse, browser }: { userInfoResponse?: any; browser?: import('puppeteer').Browser } = {}) => {
       if (userInfoResponse.code === 0) {
         sendToDaemon({
           type: 'worker-to-gui-message',
@@ -112,7 +112,7 @@ export class CookieInvalidHandlePlugin {
           await app?.dock?.hide()
         }
       } catch (e) {
-        if (e?.message === 'USER_CANCELLED_LOGIN') {
+        if ((e instanceof Error ? e.message : undefined) === 'USER_CANCELLED_LOGIN') {
           sendToDaemon({
             type: 'worker-to-gui-message',
             workerId: process.env.GEEKGEEKRUND_WORKER_ID,

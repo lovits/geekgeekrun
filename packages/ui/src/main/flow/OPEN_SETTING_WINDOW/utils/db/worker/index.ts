@@ -34,6 +34,27 @@ dbInitPromise.then(
 )
 
 const payloadHandler = {
+  async getSimulationJobs() {
+    return dataSource!.query(`SELECT j.*,
+      (SELECT dataAsJson FROM job_info_change_log h WHERE h.encryptJobId=j.encryptJobId ORDER BY updateTime DESC,id DESC LIMIT 1) rawJobInfo,
+      (SELECT MAX(updateTime) FROM job_info_change_log h WHERE h.encryptJobId=j.encryptJobId) sourceUpdatedAt
+      FROM v_job_library j WHERE trim(coalesce(j.description,''))<>''
+      AND NOT EXISTS (SELECT 1 FROM chat_startup_log c WHERE c.encryptJobId=j.encryptJobId)
+      ORDER BY sourceUpdatedAt DESC,j.encryptJobId`).then(rows => rows.map(row => {
+        let raw: any = {}
+        try { raw = JSON.parse(row.rawJobInfo || '{}') } catch {}
+        const { rawJobInfo, ...job } = row
+        return { ...job, jobType: raw.jobType, invalidStatus: raw.invalidStatus, salaryDesc: raw.salaryDesc }
+      })).catch(() => ({ simulationError: true }))
+  },
+  async exportRuntimeData() {
+    return dataSource!.transaction(async manager => {
+      const tables = await manager.query("SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' AND name NOT IN ('migrations', 'typeorm_metadata') ORDER BY name")
+      const output = {}
+      for (const { name } of tables) output[name] = await manager.query(`SELECT * FROM "${name.replaceAll('"', '""')}"`)
+      return output
+    }).catch(error => ({ exportError: String(error) }))
+  },
   async getAutoStartChatRecord({ pageNo, pageSize }: Partial<PageReq> = {}): Promise<
     PagedRes<VChatStartupLog>
   > {

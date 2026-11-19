@@ -305,7 +305,7 @@ const mainLoop = async () => {
   let cookieCheckResult = checkCookieListFormat(bossCookies)
   while (!cookieCheckResult) {
     try {
-      browser && (await browser.close())
+      await (browser as Browser | null)?.close()
     } catch (err) {
       console.log(`close browser failed`, err)
     }
@@ -358,8 +358,9 @@ const mainLoop = async () => {
     '附件简历还没准备好',
     '设置合适的期望薪资范围'
   ].map((it) => new RegExp(it))
-  browser = await bootstrap()
-  await Promise.all([launchBoss(browser)])
+  const activeBrowser = await bootstrap()
+  browser = activeBrowser
+  await Promise.all([launchBoss(activeBrowser)])
 
   await sleep(1000)
   pageMapByName.boss!.bringToFront()
@@ -370,7 +371,7 @@ const mainLoop = async () => {
   if (currentPageUrl.startsWith('https://www.zhipin.com/web/user/')) {
     writeStorageFile('boss-cookies.json', [])
     try {
-      browser && (await browser.close())
+      await (browser as Browser | null)?.close()
     } catch (err) {
       console.log(`close browser failed`, err)
     }
@@ -570,7 +571,7 @@ const mainLoop = async () => {
         )?.asElement()
         return jsHandle
       })()
-      await targetElProxy?.click()
+      await (targetElProxy as import('puppeteer').ElementHandle<Element> | null)?.click()
       await pageMapByName.boss!.waitForResponse((response) => {
         if (response.url().startsWith('https://www.zhipin.com/wapi/zpchat/geek/historyMsg')) {
           return true
@@ -582,7 +583,7 @@ const mainLoop = async () => {
     // check if expect job type match
     let isExpectJobTypeMatch = true
     if (onlyRemindBossWithExpectJobType) {
-      const selectedFriendInfo = await pageMapByName.boss?.evaluate(
+      const selectedFriendInfo: any = await pageMapByName.boss?.evaluate(
         `document.querySelector('.chat-conversation')?.__vue__?.selectedFriend$`
       )
       if (!selectedFriendInfo) {
@@ -597,7 +598,7 @@ const mainLoop = async () => {
         }
       }
     }
-    const conversationInfo = await pageMapByName.boss?.evaluate(
+    const conversationInfo: any = await pageMapByName.boss?.evaluate(
       `document.querySelector('.chat-conversation .chat-im.chat-editor')?.__vue__?.conversation$`
     )
 
@@ -693,9 +694,7 @@ const runRecordId = minimist(process.argv.slice(2))['run-record-id'] ?? null
 export async function runEntry() {
   app.dock?.hide()
   await app.whenReady()
-  app.on('window-all-closed', (e) => {
-    e.preventDefault()
-  })
+  app.on('window-all-closed', () => {})
   initPublicIpc()
   await connectToDaemon()
   await sendToDaemon(

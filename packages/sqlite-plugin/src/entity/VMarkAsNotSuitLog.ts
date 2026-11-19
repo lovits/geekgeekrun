@@ -22,56 +22,56 @@ const { ViewEntity, ViewColumn } = typeorm;
 })
 export class VMarkAsNotSuitLog {
   @ViewColumn()
-  encryptJobId: number;
+  encryptJobId!: number;
 
   @ViewColumn()
-  jobName: string;
+  jobName!: string;
 
   @ViewColumn()
-  positionName: string;
+  positionName!: string;
 
   @ViewColumn()
-  salaryLow: number | null;
+  salaryLow!: number | null;
 
   @ViewColumn()
-  salaryHigh: number | null;
+  salaryHigh!: number | null;
 
   @ViewColumn()
-  salaryMonth: number | null;
+  salaryMonth!: number | null;
 
   @ViewColumn()
-  experienceName: number | null;
+  experienceName!: number | null;
 
   @ViewColumn()
-  publishDate: Date | null;
+  publishDate!: Date | null;
 
   @ViewColumn()
-  degreeName: string;
+  degreeName!: string;
 
   @ViewColumn()
   address?: string;
 
   @ViewColumn()
-  description: string;
+  description!: string;
 
   @ViewColumn()
-  userName: string;
+  userName!: string;
 
   @ViewColumn()
-  date: string;
+  date!: string;
 
   @ViewColumn()
-  bossName: string;
+  bossName!: string;
 
   @ViewColumn()
-  markFrom: ChatStartupFrom;
+  markFrom!: ChatStartupFrom;
 
   @ViewColumn()
-  markReason: MarkAsNotSuitReason;
+  markReason!: MarkAsNotSuitReason;
 
   @ViewColumn()
-  extInfo: string;
+  extInfo!: string;
 
   @ViewColumn()
-  companyName: string;
+  companyName!: string;
 }

@@ -1,63 +1,30 @@
 <template>
   <div class="read-no-reply-reminder__wrap">
     <div class="form-wrap">
+      <header class="page-heading"><h2>已读不回自动复聊</h2></header>
       <el-form
         ref="formRef"
         :rules="formRules"
         :model="formContent.autoReminder"
         label-position="top"
       >
-        <el-form-item>
-          <div>
-            <el-checkbox
-              v-if="!expectJobTypeRegExpStrForRender?.trim()"
-              :model-value="false"
-              disabled
-            >
-              发送提醒消息前，先按照“自动开聊-职位类型正则”校验正在与BOSS沟通的岗位是否满足期望，校验通过后再提醒
-            </el-checkbox>
-            <template v-else>
-              <el-checkbox v-model="formContent.autoReminder.onlyRemindBossWithExpectJobType">
-                发送提醒消息前，先按照“自动开聊-职位类型正则”校验正在与BOSS沟通的岗位是否满足期望，校验通过后再提醒
-              </el-checkbox>
-              <div ml1.5em color-gray>
-                <div>当前职位类型正则：{{ expectJobTypeRegExpStrForRender?.trim() }}</div>
-                <template
-                  v-if="
-                    formContent.autoReminder.rechatContentSource ===
-                    RECHAT_CONTENT_SOURCE.GEMINI_WITH_CHAT_CONTEXT
-                  "
-                >
-                  <div>当前简历中填写的期望职位：{{ resumeContent?.expectJob ?? '-' }}</div>
-                  <div color-orange>请确保上方二者信息匹配</div>
-                </template>
-              </div>
-            </template>
-          </div>
-        </el-form-item>
-        <el-form-item>
-          <div>
-            <el-checkbox
-              v-if="!blockCompanyNameRegExpStrForRender?.trim()"
-              :model-value="false"
-              disabled
-            >
-              发送提醒消息前，先按照“自动开聊-不期望投递公司正则”校验正在与BOSS沟通的岗位是否归属于不期望投递的公司，如果是，则不提醒
-            </el-checkbox>
-            <template v-else>
-              <el-checkbox v-model="formContent.autoReminder.onlyRemindBossWithoutBlockCompanyName">
-                发送提醒消息前，先按照“自动开聊-不期望投递公司正则”校验正在与BOSS沟通的岗位是否归属于不期望投递的公司，如果是，则不提醒
-              </el-checkbox>
-              <div ml1.5em color-gray>
-                <div>当前不期望投递公司正则：{{ blockCompanyNameRegExpStrForRender?.trim() }}</div>
-              </div>
-            </template>
-          </div>
-        </el-form-item>
-        <el-form-item label="开场白话术">
+        <section class="settings-card">
+          <h3>跟进范围</h3>
+          <el-form-item>
+            <el-checkbox v-if="!expectJobTypeRegExpStrForRender?.trim()" :model-value="false" disabled>仅跟进职位类型符合期望的岗位</el-checkbox>
+            <el-checkbox v-else v-model="formContent.autoReminder.onlyRemindBossWithExpectJobType">仅跟进职位类型符合期望的岗位</el-checkbox>
+          </el-form-item>
+          <el-form-item class="mb0">
+            <el-checkbox v-if="!blockCompanyNameRegExpStrForRender?.trim()" :model-value="false" disabled>跳过屏蔽公司</el-checkbox>
+            <el-checkbox v-else v-model="formContent.autoReminder.onlyRemindBossWithoutBlockCompanyName">跳过屏蔽公司</el-checkbox>
+          </el-form-item>
+        </section>
+        <section class="settings-card">
+          <h3>回复内容</h3>
+        <el-form-item label="开场白回复方式">
           <el-radio-group v-model="formContent.autoReminder.openContentSource" w-full>
             <div w-full>
-              <el-radio :label="OPEN_CONTENT_SOURCE.CONSTANT_CONTENT"> 固定文案 </el-radio>
+              <el-radio :label="OPEN_CONTENT_SOURCE.CONSTANT_CONTENT"> 默认回复 </el-radio>
               <el-input
                 v-if="
                   formContent.autoReminder.openContentSource ===
@@ -77,7 +44,7 @@
             </div>
             <div>
               <el-radio :label="OPEN_CONTENT_SOURCE.GEMINI_WITH_CHAT_CONTEXT">
-                由大语言模型生成的内容
+                大模型回复
               </el-radio>
               <div
                 v-if="
@@ -98,7 +65,7 @@
                           })
                         "
                       >
-                        使用外部编辑器编辑“开场白话术”提示词模板 (Markdown)
+                        编辑开场白提示词
                       </el-button>
                       <el-button
                         size="small"
@@ -112,11 +79,8 @@
                           }
                         "
                       >
-                        还原默认“开场白话术”提示词模板
+                        还原默认提示词
                       </el-button>
-                    </div>
-                    <div class="font-size-12px color-#666">
-                      对生成效果不够满意？可在此查看、编辑“开场白话术”提示词模板。
                     </div>
                   </div>
                 </el-form-item>
@@ -124,7 +88,7 @@
             </div>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="跟进话术 - 当发现已读不回的BOSS时，将要向BOSS发出：">
+        <el-form-item label="跟进回复方式">
           <el-radio-group v-model="formContent.autoReminder.rechatContentSource">
             <div>
               <el-tooltip
@@ -137,13 +101,13 @@
                   <img block h-100px src="./resources/look-forward-reply-emotion.gif" />
                 </template>
                 <el-radio :label="RECHAT_CONTENT_SOURCE.LOOK_FORWARD_EMOTION">
-                  “[盼回复]” 表情
+                  默认回复（盼回复表情）
                 </el-radio>
               </el-tooltip>
               <br />
               <div>
                 <el-radio :label="RECHAT_CONTENT_SOURCE.GEMINI_WITH_CHAT_CONTEXT">
-                  由大语言模型（根据简历及当前聊天上下文）生成的内容
+                  大模型回复
                 </el-radio>
                 <div
                   v-if="
@@ -164,7 +128,7 @@
                             })
                           "
                         >
-                          使用外部编辑器编辑“跟进话术”提示词模板 (Markdown)
+                          编辑跟进提示词
                         </el-button>
                         <el-button
                           size="small"
@@ -178,12 +142,8 @@
                             }
                           "
                         >
-                          还原默认“跟进话术”提示词模板
+                          还原默认提示词
                         </el-button>
-                      </div>
-                      <div class="font-size-12px color-#666">
-                        对生成效果不够满意？可在此查看、编辑“跟进话术”提示词模板。请在模板中需要插入简历的位置插入
-                        __REPLACE_REAL_RESUME_HERE__
                       </div>
                     </div>
                   </el-form-item>
@@ -192,8 +152,9 @@
             </div>
           </el-radio-group>
         </el-form-item>
-        <div mt10px>
-          <el-form-item mb0 label="大语言模型公共设置及效果预览" />
+        </section>
+        <section class="settings-card">
+          <h3>模型与预览</h3>
           <template
             v-if="
               [
@@ -247,12 +208,12 @@
           </template>
           <el-form-item ml-30px>
             <el-button size="small" type="primary" @click="handleTestEffectClicked"
-              >使用当前配置模拟已读不回自动复聊过程</el-button
-            ><span text-orange ml10px
-              >&lt;- 正式运行前建议在这里先试一试大模型生成效果是否符合预期哦</span
+              >模拟回复效果</el-button
             >
           </el-form-item>
-        </div>
+        </section>
+        <section class="settings-card">
+          <h3>跟进频率</h3>
         <el-form-item label="跟进间隔（分钟）" prop="throttleIntervalMinutes">
           <el-input-number
             v-model="formContent.autoReminder.throttleIntervalMinutes"
@@ -281,6 +242,7 @@
             <div v-else>这将会跟进列表中所有聊天（<span class="text-orange">不建议</span>）</div>
           </div>
         </el-form-item>
+        </section>
         <el-form-item>
           <el-tooltip
             effect="light"
@@ -301,11 +263,11 @@
             </template>
             <el-button type="text" font-size-12px
               ><span><QuestionFilled w-1em h-1em mr2px /></span
-              >我不想持续提醒某个BOSS了，如何处理？</el-button
+              >停止跟进帮助</el-button
             >
           </el-tooltip>
         </el-form-item>
-        <el-form-item class="last-form-item" flex>
+        <el-form-item class="last-form-item settings-footer" flex>
           <el-button type="primary" @click="handleSubmit">开始提醒</el-button>
         </el-form-item>
       </el-form>
@@ -427,7 +389,7 @@ electron.ipcRenderer.invoke('fetch-config-file-content').then((res) => {
 
 const expectJobTypeRegExpStr = ref('')
 const blockCompanyNameRegExpStr = ref('')
-const fieldsForUseCommonConfig = ref({})
+const fieldsForUseCommonConfig = ref<Record<string, boolean>>({})
 async function fetchAutoStartChatConfig() {
   await electron.ipcRenderer.invoke('fetch-config-file-content').then((res) => {
     expectJobTypeRegExpStr.value = res.config['boss.json']?.expectJobTypeRegExpStr
@@ -441,7 +403,7 @@ mittBus.on('auto-start-chat-with-boss-config-saved', fetchAutoStartChatConfig)
 onUnmounted(() => {
   mittBus.off('auto-start-chat-with-boss-config-saved', fetchAutoStartChatConfig)
 })
-const commonJobConditionConfig = ref({})
+const commonJobConditionConfig = ref<Record<string, any>>({})
 const unListenCommonJobConditionConfig = electron.ipcRenderer.on(
   'common-job-condition-config-updated',
   (_, { config }) => {
@@ -466,7 +428,8 @@ const blockCompanyNameRegExpStrForRender = computed(() => {
     : commonJobConditionConfig.value.blockCompanyNameRegExpStr
 })
 
-const resumeContent = ref(null)
+
+const resumeContent = ref<string | null>(null)
 async function fetchResumeContent() {
   await electron.ipcRenderer.invoke('fetch-resume-content').then((res) => {
     resumeContent.value = res
@@ -533,7 +496,7 @@ async function checkIsCanRun() {
   try {
     await electron.ipcRenderer.invoke('check-if-llm-config-list-valid')
   } catch (err) {
-    if (err?.message?.includes(`CANNOT_FIND_VALID_CONFIG`)) {
+    if ((err instanceof Error ? err.message : undefined)?.includes(`CANNOT_FIND_VALID_CONFIG`)) {
       gtagRenderer('cannot_launch_for_invalid_llm_config')
       console.log(`大模型配置无效`, err)
       ElMessageBox.confirm(
@@ -550,7 +513,7 @@ async function checkIsCanRun() {
         .then(async () => {
           gtagRenderer('invalid_llm_config_tip_dialog_confirm')
           try {
-            await electron.ipcRenderer.invoke('llm-config')
+            await router.push('/main-layout/LlmConfig')
           } catch (err) {
             console.log(err)
           }
@@ -571,7 +534,7 @@ async function checkIsCanRun() {
     await electron.ipcRenderer.invoke('check-if-auto-remind-prompt-valid', { type: 'rechat' })
   } catch (err) {
     console.log(err)
-    if (err?.message?.includes(`RESUME_PLACEHOLDER_NOT_EXIST`)) {
+    if ((err instanceof Error ? err.message : undefined)?.includes(`RESUME_PLACEHOLDER_NOT_EXIST`)) {
       gtagRenderer('cannot_launch_for_no_resume_placehold')
       console.log(`提示词模板无效`, err)
       ElMessageBox.confirm(
@@ -606,8 +569,8 @@ async function checkIsCanRun() {
 
   return true
 }
-const runRecordId = ref(null)
-const runningOverlayRef = ref(null)
+const runRecordId = ref<number>()
+const runningOverlayRef = ref<InstanceType<typeof RunningOverlay>>()
 const taskManagerStore = useTaskManagerStore()
 const CURRENT_WORKER_ID = 'readNoReplyAutoReminderMain'
 
@@ -619,7 +582,7 @@ onMounted(async () => {
   if (existingWorker) {
     runRecordId.value = existingWorker.runtimeStorage?.stepStatusMapByStepId
       ? Object.values(existingWorker.runtimeStorage.stepStatusMapByStepId)[0]?.runRecordId
-      : null
+      : undefined
     if (runRecordId.value) {
       runningOverlayRef.value?.show()
     }
@@ -816,15 +779,28 @@ const defaultConstantOpenContent = computed(() => {
 <style lang="scss">
 .read-no-reply-reminder__wrap {
   position: relative;
+  width: 100%;
+  min-width: 0;
+  color: var(--el-text-color-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  .page-heading { max-width: 1000px; margin: 0 auto 20px; }
+  h2 { margin: 0; font-size: 24px; font-weight: 600; }
+  h3 { margin: 0 0 16px; font-size: 16px; font-weight: 600; }
+  .settings-card { padding: 22px; margin-bottom: 16px; border: 1px solid var(--el-border-color-light); border-radius: 12px; background: var(--el-bg-color); box-shadow: 0 2px 8px rgba(15, 23, 42, .025); }
+  .settings-footer { padding: 16px 0; border-top: 1px solid var(--el-border-color-light); }
+  .el-checkbox, .el-radio { height: auto; min-height: 32px; }
+  .el-checkbox__label, .el-radio__label { white-space: normal; line-height: 1.6; }
   .form-wrap {
-    max-height: 100vh;
+    height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
     overflow: auto;
-    padding-left: 20px;
-    padding-right: 20px;
+    padding: 24px;
     .el-form {
       margin: 0 auto;
       max-width: 1000px;
-      padding-top: 8px;
+
     }
     .last-form-item {
       .el-form-item__content {

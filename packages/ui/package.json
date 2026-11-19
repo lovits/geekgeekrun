@@ -1,11 +1,11 @@
 {
   "name": "geekgeekrun-ui",
-  "version": "0.17.4",
+  "version": "0.18.0",
   "description": "BOSS 炸弹 - 自动开聊BOSS，助力每位打工人求职！",
   "main": "./out/main/index.js",
   "author": "geekgeekrun",
   "productName": "GeekGeekRun",
-  "homepage": "https://github.com/geekgeekrun",
+  "homepage": "https://github.com/lovits/geekgeekrun",
   "scripts": {
     "start": "node scripts/run-build-sqlite-plugin.mjs && electron-vite preview",
     "dev": "node scripts/run-build-sqlite-plugin.mjs && electron-vite dev",
@@ -17,7 +17,7 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
-    "build:win": "npm run build && electron-builder --win",
+    "build:win": "npm run build && electron-builder --win --x64 --publish never",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",
     "build:make-dist-for-current-platform": "npm run build && node ./scripts/make-dist-for-current-platform.mjs",
@@ -26,6 +26,7 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
+    "@eslint-community/regexpp": "4.10.0",
     "@geekgeekrun/launch-bosszhipin-login-page-with-preload-extension": "workspace:*",
     "@geekgeekrun/pm": "workspace:*",
     "@geekgeekrun/puppeteer-extra-plugin-laodeng": "workspace:*",

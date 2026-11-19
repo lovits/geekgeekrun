@@ -36,7 +36,7 @@
               </el-checkbox>
             </div>
           </el-checkbox-group>
-          <el-radio-group v-else v-model="selectedCities" w-full>
+          <el-radio-group v-else v-model="selectedSingleCity" w-full>
             <div
               w-full
               :style="{
@@ -75,7 +75,7 @@
                 </el-checkbox>
               </div>
             </el-checkbox-group>
-            <el-radio-group v-else v-model="selectedCities" w-full>
+            <el-radio-group v-else v-model="selectedSingleCity" w-full>
               <div
                 w-full
                 :style="{
@@ -141,7 +141,7 @@
                   closable
                   @close="
                     () => {
-                      ;(selectedCities ?? []).splice(index, 1)
+                      if (Array.isArray(selectedCities)) selectedCities.splice(index, 1)
                       gtagRenderer('remove_selected_cities_in_dialog_clicked', {
                         gtShowScene: props.gtShowScene,
                         multiple: Boolean(multiple)
@@ -165,14 +165,14 @@
 </template>
 
 <script lang="ts" setup>
-import { PropType, ref } from 'vue'
+import { PropType, ref, computed } from 'vue'
 import cityGroupData from '@geekgeekrun/geek-auto-start-chat-with-boss/cityGroup.mjs'
 import { gtagRenderer } from '@renderer/utils/gtag'
 import { ElRadioGroup } from 'element-plus'
 
 const props = defineProps({
   modelValue: {
-    type: [Array, String] as PropType<string[] | string | null>,
+    type: [Array, String] as PropType<(string | number)[] | string | null>,
     default: null
   },
   multiple: {
@@ -188,16 +188,18 @@ const { hotCityList, cityGroup } = cityGroupData.zpData
 
 const activeTabName = ref('热门城市')
 const isDialogVisible = ref(false)
-const selectedCities = ref(null)
+const selectedCities = ref<(string | number)[] | string | null>(null)
+
+const selectedSingleCity = computed({ get: () => typeof selectedCities.value === 'string' ? selectedCities.value : undefined, set: value => { selectedCities.value = value || null } })
 
 const cityGroupsByAlphabetMap = ref(
-  new Map(['ABCDE', 'FGHJ', 'KLMN', 'PQRST', 'WXYZ'].map((it) => [it, []]))
+  new Map<string, { firstChar: string; cityList: { name: string; code: number }[] }[]>(['ABCDE', 'FGHJ', 'KLMN', 'PQRST', 'WXYZ'].map((it) => [it, []]))
 )
 for (const group of cityGroup) {
   const { firstChar } = group
   const targetKey =
-    [...cityGroupsByAlphabetMap.value.keys()].find((it) => it.includes(firstChar)) ?? null
-  if (!targetKey) {
+    [...cityGroupsByAlphabetMap.value.keys()].find((it) => it.includes(firstChar)) ?? '其他'
+  if (!cityGroupsByAlphabetMap.value.has(targetKey)) {
     if (!cityGroupsByAlphabetMap.value.get(targetKey)) {
       cityGroupsByAlphabetMap.value.set(targetKey, [])
     }

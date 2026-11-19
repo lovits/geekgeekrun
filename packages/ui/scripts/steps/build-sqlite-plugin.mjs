@@ -17,6 +17,9 @@ export default function buildSqlitePlugin() {
     if (sqlitePluginBuildProcess.error) {
       throw sqlitePluginBuildProcess.error
     }
+    if (sqlitePluginBuildProcess.status !== 0) {
+      throw new Error(`sqlite-plugin build failed (exit ${sqlitePluginBuildProcess.status})`)
+    }
   } catch (error) {
     process.chdir(rawCwd)
     console.error('error encounter when build sqlite plugin:')

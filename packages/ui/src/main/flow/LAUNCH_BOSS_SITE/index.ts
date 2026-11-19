@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { recordApplicationEvent } from '@geekgeekrun/utils/application-run-records.mjs'
 import { initPuppeteer } from '@geekgeekrun/geek-auto-start-chat-with-boss/index.mjs'
 import {
   readStorageFile,
@@ -44,13 +45,15 @@ import {
 const dbInitPromise = initDb(getPublicDbFilePath())
 
 const attachRequestsListener = async (target: Target) => {
-  const page = await target.page()
-  if (!page) {
+  const targetPage = await target.page()
+  if (!targetPage) {
     return
   }
 
+  const page = targetPage
+
   // FIXME: might not work
-  async function handleJobDetailPage({ encryptJobId } = { encryptJobId: null }) {
+  async function handleJobDetailPage({ encryptJobId }: { encryptJobId?: string | null } = {}) {
     if (!encryptJobId) {
       return
     }
@@ -172,6 +175,7 @@ const attachRequestsListener = async (target: Target) => {
       console.log(data)
       if (data.code === 0) {
         await saveJobInfoFromRecommendPage(await dbInitPromise, data.zpData)
+        await recordApplicationEvent('seen', data.zpData)
         await saveJobHireStatusRecord(await dbInitPromise, {
           encryptJobId: data.zpData.jobInfo.encryptId,
           hireStatus: JobHireStatus.HIRING,
@@ -193,7 +197,7 @@ const attachRequestsListener = async (target: Target) => {
       page.url().startsWith('https://www.zhipin.com/web/geek/jobs') &&
       response.url().startsWith('https://www.zhipin.com/wapi/zpgeek/negativefeedback/save.json')
     ) {
-      const currentJobData = await page.evaluate(
+      const currentJobData: any = await page.evaluate(
         'document.querySelector(".job-detail-box").__vue__.data'
       )
       const requestBody = new URLSearchParams(response.request().postData())
@@ -206,14 +210,14 @@ const attachRequestsListener = async (target: Target) => {
       }
 
       const chosenCode = Number(requestBody.get('code'))
-      const currentUserInfo = await page.evaluate(
+      const currentUserInfo: any = await page.evaluate(
         'document.querySelector(".job-detail-box").__vue__.$store.state.userInfo'
       )
       const reasonCodeToTextMap = await readStorageFile(
         'job-not-suit-reason-code-to-text-cache.json'
       )
       const jobSource = await getCurrentJobSource()
-      const markDetail = {
+      const markDetail: { markFrom: number; extInfo: Record<string, any>; markReason: number; jobSource: number } = {
         markFrom: ChatStartupFrom.ManuallyFromRecommendList,
         extInfo: {
           chosenReasonInUi: {
@@ -242,6 +246,7 @@ const attachRequestsListener = async (target: Target) => {
         },
         markDetail
       )
+      if ((await response.json().catch(() => null))?.code === 0) await recordApplicationEvent('marked', currentJobData, markDetail)
     } else if (
       page.url().startsWith('https://www.zhipin.com/web/geek/jobs') &&
       response.url().startsWith('https://www.zhipin.com/wapi/zpgeek/friend/add.json')
@@ -253,7 +258,7 @@ const attachRequestsListener = async (target: Target) => {
 
       // access current page, predict if jobId of current page is equal to jobId in request
       // in case of page changed after startup chat
-      const currentJobData = await page.evaluate(
+      const currentJobData: any = await page.evaluate(
         'document.querySelector(".job-detail-box").__vue__.data'
       )
       const currentJobId = currentJobData?.jobInfo?.encryptId
@@ -261,7 +266,7 @@ const attachRequestsListener = async (target: Target) => {
         return
       }
 
-      const currentUserInfo = await page.evaluate(
+      const currentUserInfo: any = await page.evaluate(
         'document.querySelector(".job-detail-box").__vue__.$store.state.userInfo'
       )
       const jobSource = await getCurrentJobSource()
@@ -281,11 +286,12 @@ const attachRequestsListener = async (target: Target) => {
           jobSource: JobSource[jobSource]
         }
       )
+      if ((await response.json().catch(() => null))?.code === 0) await recordApplicationEvent('chatted', currentJobData)
     } else if (
       page.url().startsWith('https://www.zhipin.com/web/geek/chat') &&
       response.url().startsWith('https://www.zhipin.com/wapi/zpchat/geek/historyMsg')
     ) {
-      const currentUserInfo = await page.evaluate(
+      const currentUserInfo: any = await page.evaluate(
         'document.querySelector(".main-wrap").__vue__.$store.state.userInfo'
       )
       const request = response.request().url()
@@ -293,7 +299,7 @@ const attachRequestsListener = async (target: Target) => {
       const url = new URL(request)
       const encryptBossIdInAddFriendUrl = url.searchParams.get('bossId')
 
-      const bossInfo =
+      const bossInfo: any =
         (await page.evaluate(
           'document.querySelector(".chat-conversation .chat-record")?.__vue__?.boss'
         )) ?? null
@@ -320,11 +326,9 @@ const attachRequestsListener = async (target: Target) => {
       if (encryptBossIdInAddFriendUrl !== bossInfo.encryptBossId) {
         return
       }
-      const rawChatRecordList =
+      const rawChatRecordList: any =
         (
-          await page.evaluate(
-            'document.querySelector(".message-content .chat-record").__vue__.list$'
-          )
+          await page.evaluate(() => document.querySelector(".message-content .chat-record")?.__vue__.list$)
         )?.filter(messageForSaveFilter) ?? []
 
       const chatRecordList = rawChatRecordList.map((it) => {
@@ -387,12 +391,12 @@ export async function launchBossSite() {
   let pipeForWrite: null | fs.WriteStream = null
   let pipeForRead: null | fs.ReadStream = null
   try {
-    pipeForWrite = fs.createWriteStream(null, { fd: 3 })
+    pipeForWrite = fs.createWriteStream('', { fd: 3 })
   } catch {
     console.warn('pipeForWrite is not available')
   }
   try {
-    pipeForRead = fs.createReadStream(null, { fd: 3 })
+    pipeForRead = fs.createReadStream('', { fd: 3 })
   } catch {
     console.warn('pipeForRead is not available')
   }

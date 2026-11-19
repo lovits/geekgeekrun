@@ -103,7 +103,6 @@
 import { ElForm, ElMessage } from 'element-plus'
 import { ref, onUnmounted, onMounted } from 'vue'
 import { checkCookieListFormat } from '../../../../common/utils/cookie'
-import { useRouter } from 'vue-router'
 import { gtagRenderer as baseGtagRenderer } from '@renderer/utils/gtag'
 
 const gtagRenderer = (name, params?: object) => {
@@ -112,7 +111,6 @@ const gtagRenderer = (name, params?: object) => {
     ...params
   })
 }
-const router = useRouter()
 const cookieInvalid = ref(false)
 
 enum LOGIN_COOKIE_WAITING_STATUS {
@@ -135,14 +133,13 @@ const formRules = {
     },
     {
       trigger: 'blur',
-      validator(rule, val, cb) {
-        let arr
+      validator(_rule, val, cb) {
         try {
-          arr = JSON.parse(val)
+          JSON.parse(val)
         } catch (err) {
           cb(
             new Error(
-              `JSON格式无效 - 存在语法错误: ${err.message}；建议使用EditThisCookie扩展程序进行复制。`
+              `JSON格式无效 - 存在语法错误: ${err instanceof Error ? err.message : String(err)}；建议使用EditThisCookie扩展程序进行复制。`
             )
           )
           gtagRenderer('wrong_cookie_format_json_syntax_error')

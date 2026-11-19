@@ -77,7 +77,8 @@ const runningTaskInfo = computed(() => {
     return it.workerId === props.workerId
   })
 })
-const steps = ref([])
+type Step = { id: string; describe: string; status?: string }
+const steps = ref<Step[]>([])
 const stepsForRender = computed(() => {
   const clonedSteps = JSON.parse(JSON.stringify(steps.value))
   if (clonedSteps.some((it) => it.status === 'rejected')) {
@@ -96,7 +97,7 @@ const runningStatusTextMapByCode = {
 }
 const currentRunningStatus = ref(RUNNING_STATUS_ENUM.RUNNING)
 function fillEmptySteps() {
-  const arr = getAutoStartChatSteps()
+  const arr: Step[] = getAutoStartChatSteps()
   arr.forEach((it) => (it.status = 'todo'))
   steps.value = arr
   currentRunningStatus.value = RUNNING_STATUS_ENUM.RUNNING
@@ -154,7 +155,7 @@ watch(
 )
 
 const { ipcRenderer } = electron
-function messageHandler(ev, { data }) {
+function messageHandler(_ev, { data }) {
   if (data.type !== 'prerequisite-step-by-step-check' || data.runRecordId !== props.runRecordId) {
     return
   }
@@ -189,7 +190,7 @@ defineExpose({
   show,
   hide
 })
-ipcRenderer.on('worker-exited', (ev, payload) => {
+ipcRenderer.on('worker-exited', (_ev, payload) => {
   const { workerId, code } = payload
   if (
     workerId !== props.workerId

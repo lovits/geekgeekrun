@@ -2,7 +2,7 @@ import { app, dialog } from 'electron'
 import {
   main,
   loginEventBus
-} from '@geekgeekrun/launch-bosszhipin-login-page-with-preload-extension'
+} from '@geekgeekrun/launch-bosszhipin-login-page-with-preload-extension/index.mjs'
 import { pipeWriteRegardlessError } from './utils/pipe'
 import fs from 'node:fs'
 import { getLastUsedAndAvailableBrowser } from './DOWNLOAD_DEPENDENCIES/utils/browser-history'
@@ -13,7 +13,7 @@ export const launchBossZhipinLoginPageWithPreloadExtension = async () => {
   app.dock?.hide()
   let pipe: null | fs.WriteStream = null
   try {
-    pipe = fs.createWriteStream(null, { fd: 3 })
+    pipe = fs.createWriteStream('', { fd: 3 })
   } catch {
     console.warn('pipe is not available')
   }

@@ -39,7 +39,7 @@ const createWorkerPromise = async (data) => {
     _uuid: uuid,
     ...data
   })
-  return new Promise((resolve) => {
+  return new Promise<{ data?: any; [key: string]: any }>((resolve) => {
     worker!.on('message', function handler(data) {
       const { _uuid, ...payload } = data ?? {}
       if (_uuid === uuid) {
@@ -58,6 +58,9 @@ export const getAutoStartChatRecord = async ({ pageNo, pageSize }: Partial<PageR
   })
   return res
 }
+
+export const exportRuntimeData = () => createWorkerPromise({ type: 'exportRuntimeData' })
+export const getSimulationJobs = () => createWorkerPromise({ type: 'getSimulationJobs' })
 
 export const getMarkAsNotSuitRecord = async ({ pageNo, pageSize }: Partial<PageReq> = {}) => {
   const res = await createWorkerPromise({

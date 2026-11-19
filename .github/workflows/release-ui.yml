@@ -153,7 +153,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           repo: geekgeekrun
-          prerelease: true
+          prerelease: false
           allowUpdates: true
           artifacts: geekgeekrun-ui@${{ github.sha }}/*
           tag: ${{ github.ref }}

@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import gtag from './gtag'
+import { projectUrl } from '@geekgeekrun/utils/project-links.mjs'
 import buildInfo from '../../common/build-info.json'
 import os from 'node:os'
 import fs from 'node:fs'
@@ -8,10 +9,19 @@ import {
   writeStorageFile,
   configFileNameList,
   readConfigFile,
-  readStorageFile
+  readStorageFile,
+  writeConfigFile
 } from '@geekgeekrun/geek-auto-start-chat-with-boss/runtime-file-utils.mjs'
 
+import { registerBrowserAssistantIpc } from '../window/browserAssistantWindow'
+
 export default function initPublicIpc() {
+  registerBrowserAssistantIpc()
+  ipcMain.handle('save-common-job-condition-config', async (event, payload, { embedded = false } = {}) => {
+    await writeConfigFile('common-job-condition-config.json', payload)
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('common-job-condition-config-updated', { config: payload })
+    if (!embedded) BrowserWindow.fromWebContents(event.sender)?.close()
+  })
   ipcMain.on(
     'update-window-size',
     (
@@ -35,15 +45,15 @@ export default function initPublicIpc() {
       activate: true
     })
   })
-  ipcMain.on('gtag', (ev, { name, params } = {}) => {
+  ipcMain.on('gtag', (_ev, { name, params } = {}) => {
     gtag(name, {
       ...params,
       electron_log_source: 'renderer'
     })
   })
-  ipcMain.on('send-feed-back-to-github-issue', (ev, payload) => {
+  ipcMain.on('send-feed-back-to-github-issue', (_ev, _payload) => {
     const getIssueUrlWithBody = (issueBody: string = '') => {
-      const baseUrl = `https://github.com/geekgeekrun/geekgeekrun/issues/new`
+      const baseUrl = `${projectUrl}/issues/new`
       issueBody = issueBody || ''
       if (!issueBody || !issueBody.trim()) {
         return baseUrl
@@ -65,12 +75,12 @@ export default function initPublicIpc() {
     )
   })
 
-  ipcMain.handle('read-storage-file', async (ev, payload) => {
+  ipcMain.handle('read-storage-file', async (_ev, payload) => {
     ensureStorageFileExist()
     return await readStorageFile(payload.fileName)
   })
 
-  ipcMain.handle('write-storage-file', async (ev, payload) => {
+  ipcMain.handle('write-storage-file', async (_ev, payload) => {
     ensureStorageFileExist()
     return await writeStorageFile(payload.fileName, JSON.parse(payload.data))
   })
@@ -88,7 +98,7 @@ export default function initPublicIpc() {
       return dialog.showOpenDialog(win, fileChooserConfig)
     }
   })
-  ipcMain.handle('check-executable-file', (ev, filePath: string) => {
+  ipcMain.handle('check-executable-file', (_ev, filePath: string) => {
     if (!filePath?.trim()) {
       return {
         message: '文件名无效'

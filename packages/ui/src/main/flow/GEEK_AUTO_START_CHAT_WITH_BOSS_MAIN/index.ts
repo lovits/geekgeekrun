@@ -20,7 +20,18 @@ import { CookieInvalidHandlePlugin } from '../../features/cookie-invalid-handle-
 import initPublicIpc from '../../utils/initPublicIpc'
 import { getLastUsedAndAvailableBrowser } from '../DOWNLOAD_DEPENDENCIES/utils/browser-history'
 import { configWithBrowserAssistant } from '../../features/config-with-browser-assistant'
+import { attachApplicationRecording } from '@geekgeekrun/utils/application-run-records.mjs'
+import { readOnlineSimulation, saveOnlineSimulation, onlineSimulationWorker } from '@geekgeekrun/utils/online-application-simulation.mjs'
+import { checkCookieListFormat } from '../../../common/utils/cookie'
 const { default: SqlitePlugin } = SqlitePluginModule
+const workerArgs = minimist(process.argv.slice(1))
+const isSimulation = workerArgs.mode === onlineSimulationWorker
+const simulationLimit = Number(workerArgs['simulation-limit'])
+const simulationRunId = String(workerArgs['simulation-run-id'] || '')
+async function updateSimulation(patch) {
+  const current = await readOnlineSimulation()
+  if (current?.runId === simulationRunId) await saveOnlineSimulation({ ...current, ...patch, updatedAt: new Date().toISOString() })
+}
 
 process.on('SIGTERM', () => {
   console.log('收到SIGTERM信号，正在退出')
@@ -39,18 +50,27 @@ const rerunInterval = (() => {
 const { groupRobotAccessToken: dingTalkAccessToken } = readConfigFile('dingtalk.json')
 
 const initPlugins = (hooks) => {
-  new DingtalkPlugin(dingTalkAccessToken).apply(hooks)
+  if (!isSimulation) new DingtalkPlugin(dingTalkAccessToken).apply(hooks)
   new SqlitePlugin(getPublicDbFilePath()).apply(hooks)
   new GtagPlugin().apply(hooks)
   // new PeriodPushCurrentPageScreenshotPlugin().apply(hooks)
-  new CookieInvalidHandlePlugin().apply(hooks)
+  if (!isSimulation) new CookieInvalidHandlePlugin().apply(hooks)
+  else hooks.cookieWillSet.tapPromise('OnlineSimulationLogin', async ({ cookies }) => {
+    if (!checkCookieListFormat(cookies || [])) throw new Error('LOGIN_STATUS_INVALID')
+  })
+  attachApplicationRecording(hooks, undefined, isSimulation ? { simulationRunId } : {})
 }
 
 const runRecordId = minimist(process.argv.slice(2))['run-record-id'] ?? null
 const runAutoChat = async () => {
+  if (isSimulation) {
+    if (!Number.isSafeInteger(simulationLimit) || simulationLimit < 1) throw new Error('在线模拟数量无效')
+    await updateSimulation({ running: true, ownerPid: process.pid })
+  }
   app.dock?.hide()
   let puppeteerExecutable = await getLastUsedAndAvailableBrowser()
   if (!puppeteerExecutable) {
+    if (isSimulation) await updateSimulation({ running: false, runError: '未找到可用的招聘浏览器，请先配置浏览器' })
     try {
       await configWithBrowserAssistant({ autoFind: true })
     } catch (error) {
@@ -109,9 +129,12 @@ const runAutoChat = async () => {
     userInfoResponse: new AsyncSeriesHook(['userInfo']),
     mainFlowWillLaunch: new AsyncSeriesHook(['args']),
     jobDetailIsGetFromRecommendList: new AsyncSeriesHook(['userInfo']),
+    jobScreened: new AsyncSeriesHook<[any, any]>(['positionInfoDetail', 'decision']),
+    jobMatchEvaluated: new AsyncSeriesHook<[any, any]>(['positionInfoDetail', 'decision']),
+    simulationProgress: new AsyncSeriesHook<[any]>(['progress']),
     newChatWillStartup: new AsyncSeriesHook(['positionInfoDetail']),
-    newChatStartup: new AsyncSeriesHook(['positionInfoDetail', 'chatRunningContext']),
-    jobMarkedAsNotSuit: new AsyncSeriesHook(['positionInfoDetail', 'markDetail']),
+    newChatStartup: new AsyncSeriesHook<[any, any]>(['positionInfoDetail', 'chatRunningContext']),
+    jobMarkedAsNotSuit: new AsyncSeriesHook<[any, any]>(['positionInfoDetail', 'markDetail']),
     noPositionFoundForCurrentJob: new SyncHook(),
     noPositionFoundAfterTraverseAllJob: new SyncHook(),
     errorEncounter: new SyncHook(['errorInfo']),
@@ -120,6 +143,7 @@ const runAutoChat = async () => {
     sageTimeExit: new AsyncSeriesHook(['args'])
   }
   initPlugins(hooks)
+  if (isSimulation) hooks.simulationProgress.tapPromise('OnlineSimulationProgress', updateSimulation)
 
   gtag('run_auto_chat_with_boss_main_ready')
 
@@ -128,8 +152,19 @@ const runAutoChat = async () => {
 
   while (true) {
     try {
-      await mainLoop(hooks)
+      const result = await mainLoop(hooks, isSimulation ? { simulationLimit } : {})
+      if (isSimulation) {
+        await updateSimulation({ ...result, running: false })
+        app.exit(0)
+        return
+      }
     } catch (err) {
+      if (isSimulation) {
+        const message = err instanceof Error ? err.message : String(err)
+        await updateSimulation({ running: false, runError: message.includes('LOGIN_STATUS_INVALID') ? 'BOSS登录失效，请先在「编辑登录凭据」中登录后重试' : message.includes('ACCESS_IS_DENIED') ? 'BOSS访问受限，需要在招聘浏览器中完成验证' : `在线模拟已停止：${message}` })
+        app.exit(0)
+        return
+      }
       if (err instanceof Error) {
         if (err.message.includes('LOGIN_STATUS_INVALID')) {
           await dialog.showMessageBox({
@@ -170,9 +205,7 @@ const runAutoChat = async () => {
 
 export const waitForProcessHandShakeAndRunAutoChat = async () => {
   await app.whenReady()
-  app.on('window-all-closed', (e) => {
-    e.preventDefault()
-  })
+  app.on('window-all-closed', () => {})
   initPublicIpc()
   await connectToDaemon()
   await sendToDaemon(
@@ -195,7 +228,12 @@ export const waitForProcessHandShakeAndRunAutoChat = async () => {
       runRecordId
     }
   })
-  runAutoChat()
+  if (isSimulation) {
+    runAutoChat().catch(async error => {
+      try { await updateSimulation({ running: false, runError: `在线模拟启动失败：${error instanceof Error ? error.message : String(error)}` }) }
+      finally { app.exit(0) }
+    })
+  } else runAutoChat()
 }
 
 attachListenerForKillSelfOnParentExited()

@@ -182,11 +182,11 @@ import lookForwardReplyEmotion from '../MainLayout/resources/look-forward-reply-
 
 type MessageItem = {
   text: string
-  usedLlmConfig: string
+  usedLlmConfig: string | { model: string; providerCompleteApiUrl: string }
   type: 'text'
   // recordInfo: any
 }
-type ImageMessageItem = MessageItem & {
+type ImageMessageItem = Omit<MessageItem, 'type'> & {
   type: 'image'
   imageUrl: string
 }
@@ -198,13 +198,14 @@ function getIsEnterContent(index) {
   return messageList.value.length - index - 1 < recentMessageQuantityForLlm
 }
 
-const llmConfigList = ref([])
+const llmConfigList = ref<{ id: string; model: string; providerCompleteApiUrl: string; providerApiSecret: string; enabled: boolean }[]>([])
 const llmConfigListForRender = computed(() => {
   return [
     {
       id: null,
       model: '随机使用一个模型',
-      providerCompleteApiUrl: null,
+      providerCompleteApiUrl: '',
+      providerApiSecret: '',
       enabled: true
     },
     ...(llmConfigList.value ?? [])
@@ -214,17 +215,17 @@ async function getLlmConfigList() {
   llmConfigList.value = await electron.ipcRenderer.invoke('get-llm-config-for-test')
 }
 getLlmConfigList().catch(() => {})
-const selectedLlmConfig = ref(null)
+const selectedLlmConfig = ref<string | null>(null)
 watch(
   () => selectedLlmConfig.value,
   () => {
     gtagRenderer('change_mock_chat_llm_model', {
-      model: selectedLlmConfig.value?.model ?? ''
+      model: llmConfigList.value.find(item => item.id === selectedLlmConfig.value)?.model ?? ''
     })
   }
 )
 
-const scrollElRef = ref(null)
+const scrollElRef = ref<HTMLDivElement>()
 const isLoading = ref(false)
 const openContentSource = Number(searchParams.openContentSource)
 const constantOpenContent = (() => {

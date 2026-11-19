@@ -175,8 +175,8 @@ export const requestNewMessageContent = async (
   }
   console.log(chatList)
   let res, llmConfig
-  const llmRequestRecord: Omit<LlmModelUsageRecord, 'id' | 'providerApiSecretMd5'> & {
-    providerApiSecret: string
+  const llmRequestRecord: Partial<Omit<LlmModelUsageRecord, 'id' | 'providerApiSecretMd5'>> & {
+    providerApiSecret?: string
   } = {}
   const blockModelSet = new Set()
   while (!res) {
@@ -203,6 +203,10 @@ export const requestNewMessageContent = async (
     try {
       const completion = await completes(
         {
+          provider: llmConfig.provider,
+          reasoningEffort: llmConfig.reasoningEffort,
+          contextWindowTokens: llmConfig.contextWindowTokens,
+          codexDetectionMode: llmConfig.codexDetectionMode, codexBinaryPath: llmConfig.codexBinaryPath,
           baseURL: llmConfig.providerCompleteApiUrl,
           apiKey: llmConfig.providerApiSecret,
           model: llmConfig.model
@@ -222,7 +226,7 @@ export const requestNewMessageContent = async (
       blockModelSet.add(llmConfig.id)
       Object.assign(llmRequestRecord, {
         hasError: true,
-        errorMessage: err?.message ?? ''
+        errorMessage: (err instanceof Error ? err.message : '')
       })
     } finally {
       llmRequestRecord.requestEndTime = new Date()
@@ -256,10 +260,10 @@ export const requestNewMessageContent = async (
         model: llmConfig?.model,
         providerCompleteApiUrl: llmConfig?.providerCompleteApiUrl
       })
-      throw new Error(`empty content. ${err?.message} ${res?.message?.content}`)
+      throw new Error(`empty content. ${res?.message?.content}`)
     }
   } catch (err) {
-    throw new Error(`fail to parse response. ${err?.message} ${res?.message?.content}`)
+    throw new Error(`fail to parse response. ${(err instanceof Error ? err.message : undefined)} ${res?.message?.content}`)
   }
   return {
     responseText: textToSend,

@@ -82,7 +82,7 @@
                 <div flex justify-between items-center>
                   <div font-size-12px lh-1.2em>
                     <template v-if="row.city">{{ row.city }}</template>
-                    <template v-else><i color-gray>未选择城市</i></template>
+                    <template v-else><i color-gray>全国</i></template>
                   </div>
                   <el-button size="small" pl4px pr4px @click="showDialog">选择</el-button>
                 </div>
@@ -94,6 +94,7 @@
           <template #default="{ row }">
             <el-select
               v-model="row.salary"
+              placeholder="不限"
               :disabled="row.___itemType === 'empty-condition-placeholder'"
               clearable
               size="small"
@@ -111,6 +112,7 @@
           <template #default="{ row }">
             <el-select
               v-model="row.experience"
+              placeholder="不限"
               :disabled="row.___itemType === 'empty-condition-placeholder'"
               clearable
               size="small"
@@ -128,6 +130,7 @@
           <template #default="{ row }">
             <el-select
               v-model="row.degree"
+              placeholder="不限"
               :disabled="row.___itemType === 'empty-condition-placeholder'"
               clearable
               size="small"

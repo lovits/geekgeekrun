@@ -80,7 +80,7 @@ export function getRuleOfExpectJobNameRegExpStr({ gtagRenderer, jobDetailRegExpS
       gtagRenderer('valid_reg_exp_for_expect_job_name', { v: value })
       cb()
     } catch (err) {
-      cb(new Error(`正则无效：${err?.message}`))
+      cb(new Error(`正则无效：${(err instanceof Error ? err.message : undefined)}`))
       jobDetailRegExpSectionEl.value?.scrollIntoViewIfNeeded()
       gtagRenderer('invalid_reg_exp_for_expect_job_name', { v: value })
     }
@@ -99,7 +99,7 @@ export function getRuleOfExpectJobTypeRegExpStr({ gtagRenderer, jobDetailRegExpS
       gtagRenderer('valid_reg_exp_for_expect_job_type', { v: value })
       cb()
     } catch (err) {
-      cb(new Error(`正则无效：${err?.message}`))
+      cb(new Error(`正则无效：${(err instanceof Error ? err.message : undefined)}`))
       jobDetailRegExpSectionEl.value?.scrollIntoViewIfNeeded()
       gtagRenderer('invalid_reg_exp_for_expect_job_type', { v: value })
     }
@@ -118,7 +118,7 @@ export function getRuleOfExpectJobDescRegExpStr({ gtagRenderer, jobDetailRegExpS
       gtagRenderer('valid_reg_exp_for_expect_job_desc', { v: value })
       cb()
     } catch (err) {
-      cb(new Error(`正则无效：${err?.message}`))
+      cb(new Error(`正则无效：${(err instanceof Error ? err.message : undefined)}`))
       jobDetailRegExpSectionEl.value?.scrollIntoViewIfNeeded()
       gtagRenderer('invalid_reg_exp_for_expect_job_desc', { v: value })
     }
@@ -140,7 +140,7 @@ export function getRuleOfBlockCompanyNameRegExpStr({
       gtagRenderer('valid_reg_exp_for_bcn', { v: value })
       cb()
     } catch (err) {
-      cb(new Error(`正则无效：${err?.message}`))
+      cb(new Error(`正则无效：${(err instanceof Error ? err.message : undefined)}`))
       blockCompanyNameRegExpSectionEl.value?.scrollIntoViewIfNeeded()
       gtagRenderer('invalid_reg_exp_for_bcn', { v: value })
     }
@@ -178,7 +178,7 @@ export const expectCompanyTemplateList = [
   },
   {
     name: '外包、劳务派遣企业',
-    value: `青钱,软通动力,南天,睿服,中电金信,佰钧成,云链,博彦,汉克时代,柯莱特,拓保,亿达信息,纬创,微创,微澜,诚迈科技,法本,兆尹,诚迈,联合永道,新致软件,宇信科技,华为,德科,FESCO,科锐,科之锐`
+    value: `青钱,软通动力,南天,睿服,中电金信,佰钧成,云链,博彦,汉克时代,柯莱特,拓保,亿达信息,纬创,微创,微澜,诚迈科技,法本,兆尹,诚迈,联合永道,新致软件,宇信科技,德科,FESCO,科锐,科之锐,中软国际,文思海辉`
   }
 ]
 
@@ -189,7 +189,7 @@ export const blockCompanyNameRegExpTemplateList = [
   },
   {
     name: '外包、劳务派遣企业',
-    value: `青钱|软通动力|南天|睿服|中电金信|佰钧成|云链|博彦|汉克时代|柯莱特|拓保|亿达信息|纬创|微创|微澜|诚迈科技|法本|兆尹|诚迈|联合永道|新致软件|宇信科技|华为|德科|FESCO|科锐|科之锐`
+    value: `青钱|软通动力|南天|睿服|中电金信|佰钧成|云链|博彦|汉克时代|柯莱特|拓保|亿达信息|纬创|微创|微澜|诚迈科技|法本|兆尹|诚迈|联合永道|新致软件|宇信科技|德科|FESCO|科锐|科之锐|中软国际|文思海辉`
   },
   {
     name: '京东及相关公司',

@@ -215,6 +215,8 @@
 </template>
 
 <script lang="ts" setup>
+import type { PropType } from 'vue'
+import type { JobSourceConfig } from '../../../../common/types/runtime'
 import { computed, ref } from 'vue'
 import draggable from 'vuedraggable'
 import { ElMessage as Message } from 'element-plus'
@@ -222,7 +224,7 @@ import { gtagRenderer } from '@renderer/utils/gtag'
 import { JobSource } from '@geekgeekrun/sqlite-plugin/src/enums'
 const props = defineProps({
   modelValue: {
-    type: Array
+    type: Array as PropType<JobSourceConfig[]>
   }
 })
 
@@ -258,9 +260,9 @@ function removeSearchKeywordByIndex(item, index) {
 const searchKeywordCountMap = computed(() => {
   const target = props.modelValue?.find((it) => it.type === 'search' && it.enabled)
   if (!target || !target?.children?.length) {
-    return {}
+    return {} as Record<string, number>
   }
-  const map = {}
+  const map: Record<string, number> = {}
   target.children?.forEach((it) => {
     if (!it.keyword) {
       return

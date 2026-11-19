@@ -1,247 +1,56 @@
 <template>
-  <div class="llm-config-page">
-    <div class="main-wrapper">
-      <main>
-        <div class="mt1em mb1em">
-          <div class="flex flex-items-center flex-justify-between">
-            <div>大语言模型设置</div>
-            <el-dropdown
-              @command="
-                (item) => {
-                  gtagRenderer('provider_url_for_secret_clicked', {
-                    name: item.name
-                  })
-                  openExternalLink(item.url)
-                }
-              "
-            >
-              <el-button size="small"
-                >获取 API Secret <el-icon class="el-icon--right"><arrow-down /></el-icon
-              ></el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item v-for="item in providerList" :key="item.name" :command="item">{{
-                    item.name
-                  }}</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+  <div class="llm-config-page" :class="{ embedded }">
+    <header class="window-heading"><h2>大语言模型设置</h2></header>
+    <div class="main-wrapper"><main>
+      <section class="provider-card">
+        <el-form label-position="top"><el-form-item label="接入方式">
+          <el-select v-model="activeProvider" @change="ensureProviderConfig"><el-option label="本机 Codex" value="codex-cli" /><el-option label="API 接入（OpenAI 兼容）" value="openai" /></el-select>
+        </el-form-item></el-form>
+      </section>
+      <el-form ref="formRef" :model="formContentForElForm" :rules="formRulesForElForm" label-position="top" class="llm-config-form" :validate-on-rule-change="false">
+        <section v-for="{ conf, index } in visibleConfigEntries" :key="conf.id" class="model-card">
+          <div v-if="visibleConfigEntries.length > 1" class="model-card-heading"><strong>模型 {{ visibleConfigEntries.findIndex(item => item.index === index) + 1 }}</strong><div class="model-order"><el-button circle size="small" :icon="ArrowUp" aria-label="模型上移" :disabled="index <= visibleConfigEntries[0].index" @click="moveConfigUp(index)" /><el-button circle size="small" :icon="ArrowDown" aria-label="模型下移" :disabled="index >= visibleConfigEntries[visibleConfigEntries.length - 1].index" @click="moveConfigDown(index)" /><el-button circle size="small" :icon="Delete" aria-label="删除备用模型" @click="removeConfig(index)" /></div></div>
+          <div v-if="conf.provider === 'codex-cli'" class="account-panel">
+            <el-form-item label="Codex 识别方式"><el-radio-group v-model="conf.codexDetectionMode" @change="refreshCodex(conf)"><el-radio value="auto">自动识别</el-radio><el-radio value="manual">手动选择</el-radio></el-radio-group></el-form-item>
+            <el-form-item v-if="conf.codexDetectionMode === 'manual'" label="Codex 可执行文件"><el-input v-model="conf.codexBinaryPath" placeholder="选择 codex 或 codex.exe"><template #append><el-button @click="chooseCodex(conf)">选择文件</el-button></template></el-input><p class="helper">Mac 示例：/opt/homebrew/bin/codex；Windows 示例：C:\Users\用户名\.local\bin\codex.exe。npm 安装时请选择其目录内的原生 codex.exe，不选 codex.cmd。</p></el-form-item>
+
+            <div class="account-summary"><el-tag :type="codexAccount.loggedIn ? 'success' : 'info'" effect="plain">{{ codexAccount.loggedIn ? '已登录' : '未登录' }}</el-tag><span>{{ codexAccount.email || '使用本机 Codex 登录账号' }}</span></div>
+            <div class="account-actions"><el-button size="small" @click="refreshCodex">刷新账号与模型</el-button><el-button size="small" :loading="testingCodex" @click="testCodex(conf)">测试连接</el-button></div>
+            <p v-if="codexTestResult" class="connection-result" role="status">{{ codexTestResult }}</p>
+            <el-collapse class="quiet-collapse"><el-collapse-item title="CLI 与登录信息" name="cli"><p class="path-text">{{ codexAccount.binary }}</p><p>{{ codexAccount.loginMethod }}</p><p class="helper">模型目录不代表账号权限，以测试连接为准。</p></el-collapse-item></el-collapse>
           </div>
-        </div>
-        <el-alert type="info" :closable="false" mb20px line-height-1.25em>
-          <ul pl16px m0>
-            <li>
-              请确保当前服务商提供的模型支持<a
-                :style="{
-                  color: 'var(--el-color-primary)'
-                }"
-                href="javascript:void(0)"
-                @click.prevent="
-                  () => {
-                    gtagRenderer('chat_completion_intro_doc_link_clicked')
-                    openExternalLink(
-                      'https://api-docs.deepseek.com/zh-cn/api/create-chat-completion'
-                    )
-                  }
-                "
-                >对话补全</a
-              >且兼容
-              <a
-                :style="{
-                  color: 'var(--el-color-primary)'
-                }"
-                href="javascript:void(0)"
-                @click.prevent="
-                  () => {
-                    gtagRenderer('openai_sdk_intro_doc_link_clicked')
-                    openExternalLink('https://www.npmjs.com/package/openai')
-                  }
-                "
-                >OpenAI SDK</a
-              >
-            </li>
-            <li><b class="color-red">暂不支持推理模型</b>（例如 DeepSeek-R1）</li>
-            <li>
-              请自行确保您所接入的服务商能够保护您的隐私。<b class="color-red"
-                >此处所列举“服务商-模型”由第三方提供，仅供配置参考，本程序不能保证它们能够合法使用您的数据，不表示本程序认可相关模型</b
-              >
-            </li>
-          </ul>
-        </el-alert>
-        <el-form
-          ref="formRef"
-          :model="formContentForElForm"
-          :rules="formRulesForElForm"
-          label-position="top"
-          class="llm-config-form"
-          :validate-on-rule-change="false"
-        >
-          <div v-for="(conf, index) in formContent" :key="conf.id" class="flex gap12px">
-            <div
-              v-if="formContent.length > 1"
-              :style="{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '10px',
-                height: 'fit-content',
-                marginTop: '10px'
-              }"
-            >
-              <el-button
-                :disabled="index <= 0"
-                style="margin: 0"
-                circle
-                size="small"
-                :icon="ArrowUp"
-                @click="moveConfigUp(index)"
-              />
-              <el-button
-                :disabled="index >= formContent.length - 1"
-                style="margin: 0"
-                circle
-                size="small"
-                :icon="ArrowDown"
-                @click="moveConfigDown(index)"
-              />
-              <el-button
-                :disabled="1 >= formContent.length"
-                style="margin: 0"
-                circle
-                size="small"
-                :icon="Delete"
-                @click="removeConfig(index)"
-              />
+          <template v-else>
+            <el-form-item :prop="`${index}_providerCompleteApiUrl`" label="服务地址 Base URL"><el-input ref="firstInputRefList" v-model="conf.providerCompleteApiUrl" placeholder="https://…/v1" /></el-form-item>
+            <div class="api-tools"><el-dropdown @command="item => handlePresetClick(item, index)"><el-button size="small">配置模板<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="item in llmPresetList" :key="item.name" :command="item">{{ item.name }}</el-dropdown-item></el-dropdown-menu></template></el-dropdown>
+              <el-dropdown @command="item => openExternalLink(item.url)"><el-button size="small">获取 API Secret<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item v-for="item in providerList" :key="item.name" :command="item">{{ item.name }}</el-dropdown-item></el-dropdown-menu></template></el-dropdown>
             </div>
-            <div class="w-full">
-              <el-form-item :prop="`${index}_providerCompleteApiUrl`">
-                <div
-                  class="el-form-item__label flex-items-center flex-justify-between w-full pr0px"
-                  :style="{ display: 'flex' }"
-                >
-                  <div>服务提供商 Base URL</div>
-                  <el-dropdown @command="(item) => handlePresetClick(item, index)">
-                    <el-button size="small"
-                      >配置模板 <el-icon class="el-icon--right"><arrow-down /></el-icon
-                    ></el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item
-                          v-for="item in llmPresetList"
-                          :key="item.name"
-                          :command="item"
-                          >{{ item.name }}</el-dropdown-item
-                        >
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-                <el-input
-                  ref="firstInputRefList"
-                  v-model="conf.providerCompleteApiUrl"
-                  :autosize="{
-                    minRows: 10,
-                    maxRows: 10
-                  }"
-                  font-size-12px
-                ></el-input>
-              </el-form-item>
-              <el-form-item prop="model" label="要使用的模型（model参数）">
-                <el-input
-                  v-model="conf.model"
-                  :autosize="{
-                    minRows: 10,
-                    maxRows: 10
-                  }"
-                  font-size-12px
-                ></el-input>
-              </el-form-item>
-              <el-form-item prop="providerApiSecret" label="从服务提供商处获取的 API Secret">
-                <el-input
-                  v-model="conf.providerApiSecret"
-                  :autosize="{
-                    minRows: 10,
-                    maxRows: 10
-                  }"
-                  font-size-12px
-                ></el-input>
-              </el-form-item>
-              <div class="serve-weight-config">
-                <div class="flex">
-                  <el-form-item prop="enabled">
-                    <div class="el-form-item__label">启用</div>
-                    <el-checkbox
-                      v-if="formContent.length > 1"
-                      v-model="conf.enabled"
-                      font-size-12px
-                      @click="
-                        nextTick(() =>
-                          gtagRenderer('model_enable_status_changed', { enabled: conf.enabled })
-                        )
-                      "
-                    ></el-checkbox>
-                    <el-checkbox v-else :model-value="true" font-size-12px disabled />
-                  </el-form-item>
-                  <el-form-item prop="serveWeight" class="ml40px">
-                    <div class="el-form-item__label">权重</div>
-                    <el-input-number
-                      v-if="formContent.length > 1"
-                      v-model="conf.serveWeight"
-                      :min="1"
-                      :max="100"
-                      :step="1"
-                      step-strictly
-                      :precision="0"
-                      font-size-12px
-                      placeholder="1 ~ 100"
-                      @change="
-                        (new_val, old_val) => {
-                          gtagRenderer('serve_weight_changed', { new_val, old_val })
-                        }
-                      "
-                    ></el-input-number>
-                    <el-input-number
-                      v-else
-                      font-size-12px
-                      :model-value="SINGLE_ITEM_DEFAULT_SERVE_WEIGHT"
-                      disabled
-                    />
-                  </el-form-item>
-                </div>
-                <div class="flex">
-                  <!-- <el-form-item class="ml20px">
-                    <el-button type="text">测试设置</el-button>
-                  </el-form-item> -->
-                </div>
-              </div>
-              <div
-                v-if="index !== formContent.length - 1"
-                class="mt6px mb20px h1px"
-                style="background-color: #dcdcdc"
-              />
+          </template>
+          <el-form-item label="模型">
+            <el-select v-if="conf.provider === 'codex-cli'" v-model="conf.model" placeholder="自动选择" filterable @change="() => { conf.reasoningEffort = ''; conf.contextWindowTokens = 0 }"><el-option label="自动选择（Codex 默认）" value="" /><el-option v-for="item in codexModels" :key="item.id" :label="item.displayName || item.id" :value="item.id" /></el-select>
+            <el-input v-else v-model="conf.model" placeholder="模型名称" />
+          </el-form-item>
+          <template v-if="conf.provider === 'codex-cli'">
+            <div class="parameter-grid">
+              <el-form-item label="推理强度"><el-select v-model="conf.reasoningEffort" placeholder="模型默认"><el-option label="模型默认" value="" /><el-option v-for="item in reasoningOptions(conf.model)" :key="item.reasoningEffort" :label="item.reasoningEffort" :value="item.reasoningEffort" /></el-select></el-form-item>
+              <el-form-item label="上下文长度（tokens）"><el-input-number v-if="contextLimits(conf.model)" :model-value="conf.contextWindowTokens || contextLimits(conf.model).defaultTokens" :min="contextLimits(conf.model).minTokens" :max="contextLimits(conf.model).maxTokens" :step="1000" :precision="0" @update:model-value="value => { conf.contextWindowTokens = value || 0 }" /><span v-else class="helper">跟随模型默认</span></el-form-item>
             </div>
-          </div>
-        </el-form>
-      </main>
-    </div>
-    <footer pt10px pb10px flex flex-justify-center>
-      <div w480px flex flex-justify-between>
-        <div>
-          <el-button font-size-12px type="text" @click="addConfig"
-            >添加备用模型<span v-if="formContent.length <= 1">，以生成更随机的内容</span></el-button
-          >
-        </div>
-        <div>
-          <el-button @click="handleCancel">取消</el-button>
-          <el-button type="primary" @click="handleSubmit">确定</el-button>
-        </div>
-      </div>
-    </footer>
+            <div v-if="contextLimits(conf.model)" class="context-info"><span>默认 {{ contextLimits(conf.model).defaultTokens.toLocaleString() }} · 范围 {{ contextLimits(conf.model).minTokens.toLocaleString() }}–{{ contextLimits(conf.model).maxTokens.toLocaleString() }}</span><el-button link type="primary" @click="conf.contextWindowTokens = 0">恢复默认</el-button></div>
+            <p v-if="modelListError" class="error-text">{{ modelListError }}</p>
+            <el-collapse class="quiet-collapse"><el-collapse-item title="关于上下文" name="context"><p class="helper">范围来自本机模型资料，实际支持以连接测试为准。调整长度不能增加模型上限；未自定义时使用模型默认值。</p></el-collapse-item></el-collapse>
+          </template>
+          <el-form-item v-else label="API Secret"><el-input v-model="conf.providerApiSecret" type="password" show-password autocomplete="off" /></el-form-item>
+          <div class="enable-row"><el-checkbox v-model="conf.enabled" v-if="visibleConfigEntries.length > 1">启用此模型</el-checkbox><el-checkbox v-else :model-value="true" disabled>启用此模型</el-checkbox><label class="weight-control">权重 <el-input-number v-if="visibleConfigEntries.length > 1" v-model="conf.serveWeight" :min="1" :max="100" :precision="0" size="small" /><el-input-number v-else :model-value="SINGLE_ITEM_DEFAULT_SERVE_WEIGHT" disabled size="small" /></label></div>
+          <el-collapse v-if="conf.provider === 'openai'" class="quiet-collapse"><el-collapse-item title="API 兼容与数据说明" name="api"><p class="helper">需兼容 OpenAI Chat Completions。当前请求参数不适用于部分推理模型。勾选的简历和岗位资料会发送给此服务，请确认服务商。</p></el-collapse-item></el-collapse>
+        </section>
+      </el-form>
+    </main></div>
+    <footer><el-button link type="primary" @click="addConfig">添加备用模型</el-button><div><el-button @click="handleCancel">取消</el-button><el-button type="primary" @click="handleSubmit">保存配置</el-button></div></footer>
   </div>
 </template>
-
 <script lang="ts" setup>
+import { useRouter } from 'vue-router'
+const { embedded = false } = defineProps<{ embedded?: boolean }>()
+const router = useRouter()
 import {
   ElForm,
   ElDropdown,
@@ -253,18 +62,22 @@ import {
   ElMessage
 } from 'element-plus'
 import { ArrowUp, ArrowDown, Delete } from '@element-plus/icons-vue'
-import { ref, onMounted, watch, nextTick, computed } from 'vue'
+import { ref, onMounted, onActivated, nextTick, computed } from 'vue'
 import { gtagRenderer as baseGtagRenderer } from '@renderer/utils/gtag'
 import { SINGLE_ITEM_DEFAULT_SERVE_WEIGHT } from '../../../../common/constant'
 import { v4 as uuid } from 'uuid'
-import { sleep } from '@geekgeekrun/utils/sleep.mjs'
 interface LlmConfigItem {
   id: string
+  provider?: string
+  codexDetectionMode?: string
+  codexBinaryPath?: string
   providerCompleteApiUrl: string
   providerApiSecret: string
   model: string
+  reasoningEffort?: string
+  contextWindowTokens?: number
   serveWeight: number
-  enabled: true
+  enabled: boolean
 }
 
 const gtagRenderer = (name, params?: object) => {
@@ -277,15 +90,56 @@ const gtagRenderer = (name, params?: object) => {
 function getNewConfigItem(): LlmConfigItem {
   return {
     id: uuid(),
+    codexDetectionMode: 'auto', codexBinaryPath: '',
+    provider: 'openai',
     providerCompleteApiUrl: '',
     providerApiSecret: '',
     model: '',
+    reasoningEffort: '',
+    contextWindowTokens: 0,
     serveWeight: 10,
     enabled: true
   }
 }
+const codexAccount = ref({ loggedIn: false, email: '', binary: '', loginMethod: '' })
+const testingCodex = ref(false)
+const codexTestResult = ref('')
+const codexModels = ref<any[]>([])
+const modelListError = ref('')
+function contextLimits(model: string) { return codexModels.value.find(it => it.id === model)?.contextLimits }
+function reasoningOptions(model: string) { return (codexModels.value.find(it => it.id === model)?.supportedReasoningEfforts || []).filter(item => ['low', 'medium', 'high', 'xhigh', 'max'].includes(item.reasoningEffort)) }
+async function refreshCodex(settings?: any) {
+  const config = settings?.provider ? settings : formContent.value.find(it => it.provider === 'codex-cli') || {}
+  try { codexAccount.value = await electron.ipcRenderer.invoke('codex-status', JSON.parse(JSON.stringify(config))) }
+  catch(error) { codexAccount.value = { loggedIn: false, email: '', binary: config.codexBinaryPath || '', loginMethod: '识别失败' }; codexModels.value = []; modelListError.value = String(error); return }
+  modelListError.value = ''
+  try { codexModels.value = await electron.ipcRenderer.invoke('codex-models', JSON.parse(JSON.stringify(config))) }
+  catch (error) { modelListError.value = String(error) }
+}
+
+async function chooseCodex(config: LlmConfigItem) {
+  const result = await electron.ipcRenderer.invoke('choose-file', { fileChooserConfig: { title: '选择 Codex 可执行文件', properties: ['openFile'] } })
+  if (result?.filePaths?.[0]) { config.codexBinaryPath = result.filePaths[0]; await refreshCodex(config) }
+}
+
+async function testCodex(config: LlmConfigItem) {
+  testingCodex.value = true
+  try {
+    codexTestResult.value = await electron.ipcRenderer.invoke('test-codex-connection', { codexDetectionMode: config.codexDetectionMode, codexBinaryPath: config.codexBinaryPath, model: config.model, reasoningEffort: config.reasoningEffort || '', contextWindowTokens: config.contextWindowTokens || 0 })
+  } catch (error) {
+    codexTestResult.value = String(error)
+  } finally {
+    testingCodex.value = false
+  }
+}
 const formRef = ref<InstanceType<typeof ElForm>>()
 const formContent = ref<LlmConfigItem[]>([getNewConfigItem()])
+const activeProvider = ref('openai')
+const visibleConfigEntries = computed(() => formContent.value.map((conf, index) => ({ conf, index })).filter(({ conf }) => (conf.provider || 'openai') === activeProvider.value))
+function ensureProviderConfig() {
+  if (!visibleConfigEntries.value.length) formContent.value.push({ ...getNewConfigItem(), provider: activeProvider.value, providerCompleteApiUrl: activeProvider.value === 'codex-cli' ? 'codex://local' : '' })
+}
+
 
 const formContentForElForm = computed(() => {
   const valueMap = {}
@@ -296,7 +150,8 @@ const formContentForElForm = computed(() => {
 })
 const formRulesForElForm = computed(() => {
   const valueMap = {}
-  formContent.value.forEach((_, i) => {
+  formContent.value.forEach((conf, i) => {
+    if ((conf.provider || 'openai') !== activeProvider.value || conf.provider === 'codex-cli') return
     valueMap[`${i}_providerCompleteApiUrl`] = [
       {
         required: true,
@@ -324,13 +179,18 @@ const formRulesForElForm = computed(() => {
 
 const handleCancel = () => {
   gtagRenderer('cancel_clicked')
-  electron.ipcRenderer.send('close-llm-config')
+  if (embedded) router.push('/main-layout/SettingsPreview')
+  else electron.ipcRenderer.send('close-llm-config')
   gtagRenderer('cancel_done')
 }
 
 const handleSubmit = async () => {
   gtagRenderer('submit_clicked', { llm_config_length: formContent.value.length })
   await formRef.value?.validate()
+  const selectedConfigs = visibleConfigEntries.value.map(it => it.conf)
+  if (selectedConfigs.length === 1) selectedConfigs[0].enabled = true
+  if (!selectedConfigs.some(it => it.enabled)) { ElMessage.warning('请至少启用一个模型'); return }
+  formContent.value.forEach(it => { if ((it.provider || 'openai') !== activeProvider.value) it.enabled = false })
   if (!formContent.value.length) {
     gtagRenderer('empty_model_list')
     ElMessage.warning({
@@ -350,11 +210,15 @@ const handleSubmit = async () => {
       return
     }
   }
-  electron.ipcRenderer.invoke('save-llm-config', JSON.parse(JSON.stringify(formContent.value)))
-  gtagRenderer('submit_done')
+  try {
+    await electron.ipcRenderer.invoke('save-llm-config', JSON.parse(JSON.stringify(formContent.value)), { embedded })
+    gtagRenderer('submit_done')
+    if (embedded) ElMessage.success('模型配置已保存')
+  } catch (error) { ElMessage.error(String(error)) }
 }
 
-onMounted(async () => {
+async function loadSettings() {
+  await refreshCodex()
   const savedFileContent = (await electron.ipcRenderer.invoke('fetch-config-file-content'))
     ?.config?.['llm.json']
   if (!savedFileContent?.length) {
@@ -369,9 +233,15 @@ onMounted(async () => {
     if (!it.id) {
       conf.id = uuid()
     }
+    conf.provider = conf.provider || 'openai'
+    conf.codexDetectionMode ||= 'auto'
+    conf.codexBinaryPath ||= ''
     return conf
   })
-})
+  activeProvider.value = formContent.value.find(it => it.enabled)?.provider || formContent.value[0]?.provider || 'openai'
+}
+onMounted(() => { if (!embedded) loadSettings() })
+onActivated(() => { if (embedded) loadSettings() })
 
 const llmPresetList: {
   name: string
@@ -422,7 +292,7 @@ const llmPresetList: {
     name: '由 free.v36.cm 提供的 GPT-4o mini 模型',
     config: {
       model: 'gpt-4o-mini',
-      providerApiSecret: 'sk-P3kvkV6UZ9WMy6AH792480Fc5e1c4dAb8aE17b20FcAc4eC3',
+      providerApiSecret: 'YOUR_API_KEY',
       providerCompleteApiUrl: 'https://free.v36.cm/v1',
       serveWeight: 20,
       enabled: true
@@ -473,12 +343,13 @@ function handlePresetClick(selected: (typeof llmPresetList)[number], index) {
   if (!formContent.value[index].id) {
     formContent.value[index].id = uuid()
   }
+  formContent.value[index].provider = activeProvider.value
 }
 
 const firstInputRefList = ref<InstanceType<typeof ElInput>[]>([])
 function addConfig() {
   gtagRenderer('new_config_item_added', { config_list_length_before_add: formContent.value.length })
-  formContent.value.push(getNewConfigItem())
+  formContent.value.push({ ...getNewConfigItem(), provider: activeProvider.value, providerCompleteApiUrl: activeProvider.value === 'codex-cli' ? 'codex://local' : '' })
   nextTick(() => {
     firstInputRefList.value[firstInputRefList.value.length - 1]?.focus()
   })
@@ -504,26 +375,6 @@ function removeConfig(index) {
   gtagRenderer('config_item_removed')
 }
 
-watch(
-  () => formContent.value.length,
-  async (nVal) => {
-    await sleep(100)
-    if (nVal <= 1) {
-      electron.ipcRenderer.send('update-window-size', {
-        width: window.innerWidth,
-        height: 576
-      })
-    } else {
-      electron.ipcRenderer.send('update-window-size', {
-        width: window.innerWidth,
-        height: 730
-      })
-    }
-  },
-  {
-    immediate: true
-  }
-)
 const openExternalLink = (url) => {
   electron.ipcRenderer.send('open-external-link', url)
 }
@@ -532,41 +383,16 @@ const openExternalLink = (url) => {
 </script>
 
 <style lang="scss" scoped>
-.llm-config-page {
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  .main-wrapper {
-    flex: 1;
-    overflow: auto;
-    main {
-      margin: 0 auto;
-      max-width: 480px;
-    }
-  }
-  footer {
-    background-color: #f0f0f0;
-  }
-}
-</style>
-
-<style lang="scss">
-.llm-config-form.el-form {
-  .el-form-item__error--inline {
-    margin-left: 0;
-    margin-top: 10px;
-  }
-  .serve-weight-config {
-    display: flex;
-    justify-content: space-between;
-    .el-form-item__label {
-      margin-bottom: 0;
-    }
-    .el-form-item__content {
-      display: flex;
-      flex-wrap: nowrap;
-    }
-  }
-}
+.llm-config-page { height: 100vh; display: flex; flex-direction: column; min-width: 0; overflow: hidden; color: var(--el-text-color-primary); background: var(--el-bg-color); font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; }
+.window-heading { width: 100%; max-width: 1056px; box-sizing: border-box; margin: 0 auto; padding: 24px 28px 0; background: var(--el-bg-color); } h2 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -.4px; } .window-heading p { margin: 6px 0 0; font-size: 13px; color: var(--el-text-color-secondary); }
+.main-wrapper { flex: 1; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden; } main { box-sizing: border-box; width: 100%; max-width: 1040px; padding: 24px 28px; margin: 0 auto; }
+.provider-card, .model-card { box-sizing: border-box; min-width: 0; padding: 22px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(15, 23, 42, .025); border: 1px solid var(--el-border-color-light); border-radius: 12px; background: var(--el-bg-color); }
+.model-card-heading, .account-summary, .account-actions, .api-tools, .context-info, .enable-row, .model-order { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; } .model-card-heading { justify-content: space-between; margin-bottom: 18px; } .model-order { gap: 4px; } .model-order .el-button + .el-button { margin-left: 0; }
+.account-panel { padding: 14px 16px 6px; margin-bottom: 20px; background: var(--el-color-primary-light-9); border-radius: 8px; min-width: 0; } .account-summary span { overflow-wrap: anywhere; font-size: 13px; } .account-actions { margin-top: 12px; } .account-actions .el-button + .el-button { margin-left: 0; } .connection-result { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.helper, .path-text, .context-info { font-size: 12px; color: var(--el-text-color-secondary); line-height: 1.7; overflow-wrap: anywhere; white-space: normal; } .helper { margin: 4px 0; } .path-text { font-family: ui-monospace, monospace; } .parameter-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; } .context-info { justify-content: space-between; gap: 8px; margin-top: -8px; } .context-info .el-button { margin-left: auto; }
+.enable-row { justify-content: space-between; margin-top: 12px; } .weight-control { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--el-text-color-regular); } .weight-control .el-input-number { width: 110px; } .api-tools { margin: -4px 0 20px; } .error-text { color: var(--el-color-danger); font-size: 13px; overflow-wrap: anywhere; }
+.quiet-collapse { border: 0; } .quiet-collapse :deep(.el-collapse-item__header) { height: 36px; background: transparent; border: 0; font-size: 12px; line-height: 1.6; } .quiet-collapse :deep(.el-collapse-item__wrap) { background: transparent; border: 0; } .quiet-collapse :deep(.el-collapse-item__content) { padding-bottom: 12px; }
+.llm-config-form, .llm-config-form :deep(.el-form-item__content) { min-width: 0; } :deep(.el-select), .parameter-grid :deep(.el-input-number) { width: 100%; } :deep(.el-input__wrapper) { min-width: 0; } footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 28px; background: var(--el-bg-color); border-top: 1px solid var(--el-border-color-light); flex-shrink: 0; }
+@media (max-width: 640px) { .parameter-grid { grid-template-columns: minmax(0, 1fr); gap: 0; } main { padding: 16px; } .window-heading { padding: 20px; } footer { padding: 14px 20px; } }
+.llm-config-page.embedded { height: 100%; flex: 1; min-height: 0; }
 </style>

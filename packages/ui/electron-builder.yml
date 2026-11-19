@@ -17,9 +17,18 @@ files:
   - '!node_modules/typeorm/browser/*'
 asarUnpack:
   - 'resources/**'
+  - '**/*.node'
+afterPack: ./scripts/windows-native.cjs
 win:
   executableName: geekgeekrun
+  target:
+    - target: nsis
+      arch: [x64]
+  signAndEditExecutable: false
 nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
   artifactName: ${name}_${version}_${arch}_setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
@@ -40,7 +49,8 @@ linux:
   category: Utility
 npmRebuild: false
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: lovits
+  repo: geekgeekrun
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

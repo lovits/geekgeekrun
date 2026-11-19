@@ -32,7 +32,7 @@
                 type="primary"
                 size="small"
                 @click="handleViewJobSnapshotButtonClick(row)"
-                >最新快照</ElButton
+                >快照</ElButton
               >
               <ElButton
                 link
@@ -46,7 +46,7 @@
                 type="primary"
                 size="small"
                 @click="handleViewJobOnlineButtonClick(row.encryptJobId)"
-                >线上</ElButton
+                >详情</ElButton
               >
             </template>
           </ElTableColumn>
@@ -78,7 +78,7 @@
         @size-change="getJobLibrary"
         @current-change="getJobLibrary"
       />
-      <div class="w100px" />
+      <div class="w100px"><RecordExport scope="jobs" /></div>
     </div>
     <ElDrawer v-model="drawVisibleModelValue" size="400px">
       <JobInfoSnapshot
@@ -119,6 +119,7 @@
 </template>
 
 <script setup lang="ts">
+import RecordExport from '@renderer/features/RecordExport/index.vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElTable, ElTableColumn, ElButton, ElPagination, ElDrawer, ElMessage } from 'element-plus'
 import { type VChatStartupLog } from '@geekgeekrun/sqlite-plugin/src/entity/VChatStartupLog'

@@ -1,17 +1,17 @@
 import { ipcMain } from 'electron'
-import { createCookieAssistantWindow, cookieAssistantWindow } from '../window/cookieAssistantWindow';
+import { createCookieAssistantWindow } from '../window/cookieAssistantWindow';
 
-export async function loginWithCookieAssistant({ windowOption } = {}) {
+export async function loginWithCookieAssistant({ windowOption }: { windowOption?: Electron.BrowserWindowConstructorOptions } = {}) {
   return new Promise((resolve, reject) => {
-    createCookieAssistantWindow({ ...windowOption })
+    const win = createCookieAssistantWindow({ ...windowOption })
 
     let processDone = false
     function handler() {
       processDone = true
-      cookieAssistantWindow.close()
+      win.close()
     }
     ipcMain.once('cookie-saved', handler)
-    cookieAssistantWindow.once('closed', () => {
+    win.once('closed', () => {
       ipcMain.off('cookie-saved', handler)
       if (processDone) {
         resolve(true)

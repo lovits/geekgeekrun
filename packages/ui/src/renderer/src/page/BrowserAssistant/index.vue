@@ -1,5 +1,6 @@
 <template>
-  <div class="h-screen of-hidden flex flex-col flex-items-center flex-justify-between">
+  <div class="browser-preferences" :class="{ embedded }">
+    <header v-if="embedded" class="window-heading"><h2>浏览器偏好</h2></header>
     <div flex-1 of-hidden w-full>
       <el-form ref="formRef" :model="formData" :rules="rules" flex flex-col of-hidden h-full>
         <div class="bg-#f6f6f6" flex-0>
@@ -15,7 +16,7 @@
             mb-0
           >
             <div flex flex-1>
-              <el-input v-model="formData.browserPath" />
+              <el-input v-model="formData.browserPath" @change="handleSave" />
               <el-button
                 type="primary"
                 :loading="isAutoDetectLoading"
@@ -175,21 +176,7 @@
         </div>
       </el-form>
     </div>
-    <div class="bg-#f8f8f8 pb10px pt10px w-full flex-0">
-      <div
-        :style="{
-          display: 'flex',
-          justifyContent: 'end',
-          width: '90%',
-          margin: '0 auto',
-          paddingLeft: '',
-          paddingRight: ''
-        }"
-      >
-        <el-button @click="handleCancel">取消</el-button>
-        <el-button type="primary" @click="handleSave">确定</el-button>
-      </div>
-    </div>
+
   </div>
   <!-- <div class="h60px mt14px">
       <RouterView
@@ -201,15 +188,14 @@
 </template>
 
 <script lang="ts" setup>
-import { useRouter } from 'vue-router'
-import { nextTick, onMounted, ref } from 'vue'
+const { embedded = false } = defineProps<{ embedded?: boolean }>()
+import { nextTick, onActivated, onMounted, ref } from 'vue'
 import debounce from 'lodash/debounce'
 import { ElMessage } from 'element-plus'
 import { gtagRenderer as baseGtagRenderer } from '@renderer/utils/gtag'
 import { EXPECT_CHROMIUM_BUILD_ID } from '../../../../common/constant'
 import { sleep } from '@geekgeekrun/utils/sleep.mjs'
 const { ipcRenderer } = electron
-useRouter()
 // const checkDependenciesResult = ref({})
 // const downloadProcessWaitee = ref(null)
 
@@ -277,13 +263,8 @@ async function autoDetectPuppeteerExecutable() {
       executableName: result.executablePath?.split(/\/|\\/).pop() ?? ''
     })
     formData.value.browserPath = result.executablePath
-    ElMessage({
-      message: '已找到可用浏览器，可执行文件路径已填入输入框',
-      type: 'success',
-      grouping: true
-    })
     await nextTick()
-    await formRef.value.validateField()
+    await handleSave()
   } finally {
     isAutoDetectLoading.value = false
   }
@@ -312,16 +293,15 @@ async function chooseExecutableFile() {
     executableName: chooseResult.filePaths[0]?.split(/\/|\\/).pop() ?? ''
   })
   await nextTick()
-  await formRef.value.validateField()
+  await handleSave()
 }
 
-ipcRenderer.invoke('get-last-used-and-available-browser').then((res) => {
+async function loadBrowserPreference() {
+  const res = await ipcRenderer.invoke('get-last-used-and-available-browser')
   formData.value.browserPath = res?.executablePath ?? ''
-})
-function handleCancel() {
-  gtagRenderer('cancel_clicked')
-  window.close()
 }
+loadBrowserPreference()
+onActivated(() => { if (embedded) loadBrowserPreference() })
 const formRef = ref()
 async function handleSave() {
   gtagRenderer('save_clicked', {
@@ -334,14 +314,15 @@ async function handleSave() {
       executablePath: formData.value.browserPath,
       browser: ''
     })
-    await ipcRenderer.send('browser-config-saved')
+    if (embedded) ElMessage.success('浏览器偏好已保存')
+    else ipcRenderer.send('browser-config-saved')
     gtagRenderer('save_done', {
       executablePath: formData.value.browserPath,
       executableName: formData.value.browserPath?.split(/\/|\\/).pop() ?? ''
     })
   } catch (err) {
     gtagRenderer('save_validate_failed', {
-      error: err?.message ?? '',
+      error: (err instanceof Error ? err.message : ''),
       executablePath: formData.value.browserPath,
       executableName: formData.value.browserPath?.split(/\/|\\/).pop() ?? ''
     })
@@ -363,6 +344,7 @@ const handleClickLaunchBrowserDownloader = async () => {
         type: 'success',
         grouping: true
       })
+      await handleSave()
       gtagRenderer('browser_downloader_done_with_path')
     } else {
       ElMessage({
@@ -394,6 +376,10 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.browser-preferences { height: 100vh; display: flex; flex-direction: column; min-width: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; }
+.browser-preferences.embedded { height: 100%; flex: 1; min-height: 0; }
+.window-heading { padding: 24px; } h2 { margin: 0; font-size: 24px; } .window-heading p { color: var(--el-text-color-secondary); font-size: 13px; margin: 6px 0 0; }
+
 a:link,
 a:visited,
 a:hover,
