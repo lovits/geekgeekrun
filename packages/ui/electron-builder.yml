@@ -1,5 +1,5 @@
 appId: com.geekgeekrun.ui
-productName: GeekGeekRun Pro
+productName: Geek Geek Run-Pro
 directories:
   buildResources: build
 icon: resources/icon.png
@@ -47,7 +47,7 @@ dmg:
 linux:
   executableName: geekgeekrun-pro
   artifactName: geekgeekrun-pro_${version}_${arch}.${ext}
-  maintainer: GeekGeekRun Pro
+  maintainer: Geek Geek Run-Pro
   category: Utility
 npmRebuild: false
 publish:

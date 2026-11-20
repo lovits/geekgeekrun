@@ -68,7 +68,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Check packaged Mac database
         if: runner.os == 'macOS'
-        run: ELECTRON_RUN_AS_NODE=1 'packages/ui/dist/${{ matrix.app-directory }}/GeekGeekRun Pro.app/Contents/MacOS/GeekGeekRun Pro' packages/ui/scripts/packaged-database-smoke.cjs 'packages/ui/dist/${{ matrix.app-directory }}/GeekGeekRun Pro.app/Contents/Resources/app.asar'
+        run: ELECTRON_RUN_AS_NODE=1 'packages/ui/dist/${{ matrix.app-directory }}/Geek Geek Run-Pro.app/Contents/MacOS/Geek Geek Run-Pro' packages/ui/scripts/packaged-database-smoke.cjs 'packages/ui/dist/${{ matrix.app-directory }}/Geek Geek Run-Pro.app/Contents/Resources/app.asar'
       - name: Check packaged Linux database
         if: runner.os == 'Linux'
         run: ELECTRON_RUN_AS_NODE=1 packages/ui/dist/linux-unpacked/geekgeekrun-pro packages/ui/scripts/packaged-database-smoke.cjs packages/ui/dist/linux-unpacked/resources/app.asar
@@ -105,7 +105,7 @@ jobs:
       - name: Create release
         uses: ncipollo/release-action@v1
         with:
-          name: GeekGeekRun Pro ${{ github.ref_name }}
+          name: Geek Geek Run-Pro ${{ github.ref_name }}
           tag: ${{ github.ref_name }}
           prerelease: false
           allowUpdates: true

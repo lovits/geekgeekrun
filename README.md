@@ -1,4 +1,4 @@
-# GeekGeekRun Pro
+# Geek Geek Run-Pro
 
 BOSS 直聘求职辅助桌面应用，基于 [GeekGeekRun（牛人快跑）](https://github.com/geekgeekrun/geekgeekrun) 开发。保留原有自动开聊、已读不回自动复聊及职位记录，增加可组合的正则与 AI 筛选、简历解析、反馈学习、模拟开聊和条件导出。
 

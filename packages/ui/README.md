@@ -1,4 +1,4 @@
-# GeekGeekRun Pro 桌面端
+# Geek Geek Run-Pro 桌面端
 
 基于 Electron、Vue 和 TypeScript。安装、配置、截图与完整操作步骤见 [项目使用指南](../../README.md)。
 

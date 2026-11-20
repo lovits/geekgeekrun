@@ -3,6 +3,12 @@ import minimist from 'minimist'
 import { runCommon } from './features/run-common'
 import { launchDaemon } from './flow/OPEN_SETTING_WINDOW/launch-daemon'
 import { app } from 'electron'
+import path from 'node:path'
+
+// Keep the existing app data directory when the display name changes.
+if (app.isPackaged && !app.commandLine.hasSwitch('user-data-dir')) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'GeekGeekRun Pro'))
+}
 
 const isUiDev = process.env.NODE_ENV === 'development'
 const enableLogToFile = process.env.GEEKGEEKRUN_ENABLE_LOG_TO_FILE === String(1)
