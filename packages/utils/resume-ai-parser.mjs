@@ -19,7 +19,7 @@ export async function parseResumeWithAi(rawText, model, { images = [], request =
     response = await codexCompletion(messages, model.model, { imagePaths: images, timeout: 180000, reasoningEffort: model.reasoningEffort, codexDetectionMode: model.codexDetectionMode, codexBinaryPath: model.codexBinaryPath, contextWindowTokens: model.contextWindowTokens })
   } else {
     if (images.length) messages[1].content = [{ type: 'text', text: messages[1].content }, ...await Promise.all(images.map(async file => ({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${(await fs.readFile(file)).toString('base64')}` } })))]
-    response = await request({ provider: model.provider, model: model.model, reasoningEffort: model.reasoningEffort, codexDetectionMode: model.codexDetectionMode, codexBinaryPath: model.codexBinaryPath, contextWindowTokens: model.contextWindowTokens, baseURL: model.providerCompleteApiUrl, apiKey: model.providerApiSecret, maxTokens: 12000 }, messages)
+    response = await request({ provider: model.provider, model: model.model, reasoningEffort: model.reasoningEffort, codexDetectionMode: model.codexDetectionMode, codexBinaryPath: model.codexBinaryPath, contextWindowTokens: model.contextWindowTokens, piDetectionMode: model.piDetectionMode, piBinaryPath: model.piBinaryPath, baseURL: model.providerCompleteApiUrl, apiKey: model.providerApiSecret, maxTokens: 12000 }, messages)
   }
   const content = response?.choices?.[0]?.message?.content?.trim() || ''
   let result

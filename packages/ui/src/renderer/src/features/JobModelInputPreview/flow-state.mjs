@@ -5,7 +5,7 @@ export function jobMatchFlow(payload = {}, context = {}) {
   const personal = [
     ['resume', '简历内容'], ['preferences', '手写求职偏好'], ['feedback', '喜欢／不喜欢反馈'],
     ['employmentAndTraversal', '求职类型与组合方式'], ['regexRules', '公共正则条件'],
-    ['pageFilters', '城市、薪资、经验、学历、行业、规模'], ['companyRules', '期望公司与屏蔽规则'], ['activity', '期望 BOSS 活跃度']
+    ['pageFilters', '城市、薪资、经验、学历、行业、规模'], ['companyRules', '期望公司与屏蔽规则']
   ].map(([key, label]) => item(key, label, sources[key]))
   personal.push(item('prompt', '匹配提示词', true), item('system', '固定审核规则与输出格式', true), item('date', '当前日期（程序提供）', true), item('switches', '筛选范围与开关状态', true))
   const boss = [
@@ -13,7 +13,6 @@ export function jobMatchFlow(payload = {}, context = {}) {
     item('postDescription', '完整岗位描述', payload.selectedFields?.includes('postDescription')),
     item('companyCity', '公司、工作城市', true),
     item('facts', '职位类型、经验要求、有效状态', true),
-    item('bossActivity', 'BOSS 实际活跃状态', sources.activity),
   ]
   const regex = payload.switches?.regex || {}
   const groups = String(context.traversalMode).startsWith('固定') ? context.staticFilterGroups || [] : [context.pageFilters || {}]
@@ -47,7 +46,7 @@ export function groupFlowInputs(items, stage) {
       ['companyRules', '公司名单与屏蔽规则', ['companies', 'blockedCompanies'], 'companyRules']
     ],
     after: [
-      ['aiScope', 'AI 筛选范围', ['jobName', 'postDescription', 'bossActivity'], 'switches'],
+      ['aiScope', 'AI 筛选范围', ['jobName', 'postDescription'], 'switches'],
       ['metadata', '岗位基础信息', ['companyCity', 'facts'], 'companyCity']
     ]
   }[stage] || []

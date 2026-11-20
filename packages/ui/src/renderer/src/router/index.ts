@@ -71,7 +71,7 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@renderer/page/MainLayout/index.vue'),
     redirect: '/main-layout/GeekAutoStartChatWithBoss',
     children: [
-      { path: 'Updates', component: () => import('@renderer/page/MainLayout/Updates.vue'), meta: { title: '自动更新' } },
+      { path: 'Updates', component: () => import('@renderer/page/MainLayout/Updates.vue'), meta: { title: '设置' } },
       { path: 'ApplicationSimulation', component: () => import('@renderer/page/MainLayout/ApplicationSimulation.vue'), meta: { title: '模拟开聊' } },
       { path: 'CommonJobConditionConfig', component: () => import('@renderer/page/CommonJobConditionConfig/index.vue'), props: { embedded: true }, meta: { title: '公共职位正则筛选' } },
       { path: 'LlmConfig', component: () => import('@renderer/page/LlmConfig/index.vue'), props: { embedded: true }, meta: { title: '大语言模型设置' } },

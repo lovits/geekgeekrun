@@ -2,7 +2,7 @@
 
 BOSS 直聘求职辅助桌面应用，基于 [GeekGeekRun（牛人快跑）](https://github.com/geekgeekrun/geekgeekrun) 开发。保留原有自动开聊、已读不回自动复聊及职位记录，增加可组合的正则与 AI 筛选、简历解析、反馈学习、模拟开聊和条件导出。
 
-[下载安装包](https://github.com/lovits/geekgeekrun-pro/releases/latest) · [0.20.1 更新说明](docs/releases/ui-v0.20.1.md) · [反馈问题](https://github.com/lovits/geekgeekrun-pro/issues) · [原项目](https://github.com/geekgeekrun/geekgeekrun)
+[下载安装包](https://github.com/lovits/geekgeekrun-pro/releases/latest) · [0.20.2 更新说明](docs/releases/ui-v0.20.2.md) · [反馈问题](https://github.com/lovits/geekgeekrun-pro/issues) · [原项目](https://github.com/geekgeekrun/geekgeekrun)
 
 ## 这次更新了什么
 
@@ -32,12 +32,12 @@ BOSS 直聘求职辅助桌面应用，基于 [GeekGeekRun（牛人快跑）](htt
 
 在 [Releases](https://github.com/lovits/geekgeekrun-pro/releases/latest) 下载对应系统的包：
 
-| 系统 | 0.20.1 安装包 | 使用方式 |
+| 系统 | 0.20.2 安装包 | 使用方式 |
 | --- | --- | --- |
-| Mac，Apple 芯片 | `geekgeekrun-pro_0.20.1_arm64.dmg` | 打开并拖入 Applications |
-| Mac，Intel | `geekgeekrun-pro_0.20.1_x64.dmg` | 打开并拖入 Applications |
-| Windows 10／11，x64 | `geekgeekrun-pro_0.20.1_x64_setup.exe` | 运行安装程序，可选择安装目录 |
-| Debian／Ubuntu，x64 | `geekgeekrun-pro_0.20.1_amd64.deb` | 用系统安装器安装 |
+| Mac，Apple 芯片 | `geekgeekrun-pro_0.20.2_arm64.dmg` | 打开并拖入 Applications |
+| Mac，Intel | `geekgeekrun-pro_0.20.2_x64.dmg` | 打开并拖入 Applications |
+| Windows 10／11，x64 | `geekgeekrun-pro_0.20.2_x64_setup.exe` | 运行安装程序，可选择安装目录 |
+| Debian／Ubuntu，x64 | `geekgeekrun-pro_0.20.2_amd64.deb` | 用系统安装器安装 |
 
 发布附件包含 `SHA256SUMS.txt`。Mac 包采用临时签名，未经过 Apple 公证；Windows 包未使用商业代码签名。遇到系统提示时，先核对下载来源和校验值，按系统针对该应用的提示操作。
 

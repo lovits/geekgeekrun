@@ -1,8 +1,10 @@
+import { piStatus, piCompletion, listPiModels, resolvePiBinary } from '@geekgeekrun/utils/pi-request.mjs'
 import { downloadReleaseAsset } from '@geekgeekrun/utils/update-download.mjs'
 import { readJobFeedback, saveJobFeedback } from '@geekgeekrun/utils/job-feedback.mjs'
 import { hasConfiguredLlm, feedbackLearningState } from '@geekgeekrun/utils/job-feedback-learning.mjs'
 import { codexContextLimits, validateContextWindow } from '@geekgeekrun/utils/codex-context.mjs'
 import fs from 'node:fs/promises'
+import { portableFiles, exportPortableConfig, preparePortableImport } from '@geekgeekrun/utils/portable-config.mjs'
 import { exportScopes, normalizeExportOptions, selectExportRecords, recordsToCsv } from '@geekgeekrun/utils/runtime-export.mjs'
 import { resumeDocumentPath, saveResumeDocument } from '@geekgeekrun/utils/resume-document.mjs'
 import { recentScoreExamples } from '@geekgeekrun/utils/score-examples.mjs'
@@ -22,6 +24,7 @@ import * as childProcess from 'node:child_process'
 import {
   readConfigFile,
   writeConfigFile,
+  configFolderPath,
   readStorageFile,
   storageFilePath
 } from '@geekgeekrun/geek-auto-start-chat-with-boss/runtime-file-utils.mjs'
@@ -326,7 +329,7 @@ export default function initIpc() {
   ipcMain.handle('get-job-feedback', async () => Object.fromEntries((await readJobFeedback()).map(item => [item.jobId, item.value])))
   ipcMain.handle('get-job-feedback-availability', async () => {
     const model = readConfigFile('llm.json')?.find(it => it.enabled)
-    return hasConfiguredLlm(model) && (model.provider !== 'codex-cli' || (await codexStatus(model)).loggedIn)
+    return hasConfiguredLlm(model) && (model.provider === 'pi-cli' ? (await piStatus(model)).loggedIn : model.provider !== 'codex-cli' || (await codexStatus(model)).loggedIn)
   })
   let feedbackUpdate = Promise.resolve()
   function queueJobMatchUpdate(action) {
@@ -345,13 +348,54 @@ export default function initIpc() {
   ipcMain.handle('save-job-feedback', (_, payload) => queueJobMatchUpdate(async () => {
     if (typeof payload?.jobId !== 'string' || typeof payload.jobName !== 'string' || typeof payload.description !== 'string') throw new Error('岗位反馈缺少必要信息')
     const model = readConfigFile('llm.json')?.find(it => it.enabled)
-    if (!hasConfiguredLlm(model) || (model.provider === 'codex-cli' && !(await codexStatus(model)).loggedIn)) throw new Error('请先配置并登录大模型，再使用偏好反馈')
+    if (!hasConfiguredLlm(model) || (model.provider === 'codex-cli' && !(await codexStatus(model)).loggedIn) || (model?.provider === 'pi-cli' && !(await piStatus(model)).loggedIn)) throw new Error('请先配置并登录大模型，再使用偏好反馈')
     const records = await saveJobFeedback(payload)
     const config = readConfigFile('job-ai-match.json')
     const { warning, ...learning } = await refreshFeedbackLearning(config, records)
     await writeConfigFile('job-ai-match.json', { ...config, ...learning })
     return { value: payload.value, ...learning, warning }
   }))
+  async function readPortableFiles() {
+    const files: Record<string, any> = {}
+    for (const name of portableFiles) {
+      try { files[name] = JSON.parse(await fs.readFile(path.join(configFolderPath, name), 'utf8')) }
+      catch (error: any) { if (error.code !== 'ENOENT') throw error }
+    }
+    return files
+  }
+  ipcMain.handle('export-portable-config', async (_, settings) => {
+    const selection = await dialog.showSaveDialog(mainWindow!, { title: '导出配置', defaultPath: path.join(app.getPath('downloads'), 'GeekGeekRun-Pro-配置.json'), filters: [{ name: '配置文件', extensions: ['json'] }] })
+    if (selection.canceled || !selection.filePath) return null
+    const bundle = { ...exportPortableConfig(await readPortableFiles()), settings: { autoCheckUpdates: Boolean(settings?.autoCheckUpdates) } }
+    await fs.writeFile(selection.filePath, JSON.stringify(bundle, null, 2), { mode: 0o600 })
+    return { path: selection.filePath }
+  })
+  ipcMain.handle('import-portable-config', async () => {
+    const selection = await dialog.showOpenDialog(mainWindow!, { title: '导入配置', properties: ['openFile'], filters: [{ name: '配置文件', extensions: ['json'] }] })
+    if (selection.canceled || !selection.filePaths[0]) return null
+    const file = selection.filePaths[0]
+    if ((await fs.stat(file)).size > 5 * 1024 * 1024) throw new Error('配置文件过大')
+    const status = await sendToDaemon({ type: 'get-status' }, { needCallback: true })
+    if (!Array.isArray(status?.workers)) throw new Error('无法确认任务状态，请稍后重试')
+    if (status.workers.length) throw new Error('请先停止正在运行的任务，再导入配置')
+    const existing = await readPortableFiles()
+    const bundle = JSON.parse(await fs.readFile(file, 'utf8'))
+    const imported = preparePortableImport(bundle, existing)
+    const backup = path.join(configFolderPath, `导入前备份-${Date.now()}`)
+    await fs.mkdir(backup, { recursive: true })
+    for (const name of Object.keys(imported)) if (existing[name] !== undefined) await fs.copyFile(path.join(configFolderPath, name), path.join(backup, name))
+    const written: string[] = []
+    try {
+      for (const [name, value] of Object.entries(imported)) { await writeConfigFile(name, value); written.push(name) }
+    } catch (error) {
+      for (const name of written) {
+        if (existing[name] !== undefined) await writeConfigFile(name, existing[name])
+        else await fs.rm(path.join(configFolderPath, name), { force: true })
+      }
+      throw error
+    }
+    return { backup, autoCheckUpdates: typeof bundle.settings?.autoCheckUpdates === 'boolean' ? bundle.settings.autoCheckUpdates : null }
+  })
   ipcMain.handle('export-runtime-data', async (_, requested = {}) => {
     const options = normalizeExportOptions(requested)
     const result = await exportRuntimeData() as any
@@ -495,8 +539,9 @@ export default function initIpc() {
     const model = readConfigFile('llm.json')?.find(it => it.enabled)
     if (!model) return { provider: '未启用模型', model: '', account: '' }
     const codex = model.provider === 'codex-cli'
-    const status = codex ? await codexStatus(model) : null
-    return { provider: codex ? '本机 Codex CLI → OpenAI 云端模型' : 'API 接入', model: model.model || '自动选择（实际模型显示在每次运行结果）', reasoningEffort: model.reasoningEffort || '模型默认', account: status?.email || '', endpoint: codex ? status?.binary : model.providerCompleteApiUrl }
+    const pi = model.provider === 'pi-cli'
+    const status = pi ? await piStatus(model) : codex ? await codexStatus(model) : null
+    return { provider: pi ? '本机 Pi CLI → 配置的模型服务' : codex ? '本机 Codex CLI → OpenAI 云端模型' : 'API 接入', model: model.model || '自动选择（实际模型显示在每次运行结果）', reasoningEffort: model.reasoningEffort || '模型默认', account: status?.email || '', endpoint: codex || pi ? status?.binary : model.providerCompleteApiUrl }
   })
   ipcMain.handle('get-job-ai-score-examples', () => {
     try { return recentScoreExamples(JSON.parse(require('node:fs').readFileSync(path.join(storageFilePath, 'job-ai-score-examples.json'), 'utf8'))) }
@@ -553,6 +598,12 @@ export default function initIpc() {
     const model = readConfigFile('llm.json')?.find(it => it.enabled)
     return matchJobWithResume({ ...config, filterContext: matchingContext() }, { jobInfo: candidate, selectedJob: { brandName: candidate.company || '', cityName: candidate.city || '' } }, model)
   })
+  ipcMain.handle('pi-models', (_, settings = {}) => listPiModels(settings))
+  ipcMain.handle('pi-status', (_, settings = {}) => piStatus(settings))
+  ipcMain.handle('test-pi-connection', async (_, settings = {}) => {
+    const result = await piCompletion([{ role: 'user', content: '只回复：连接成功' }], settings.model || '', settings)
+    return `${result.choices[0].message.content}；实际模型：${result.model}`
+  })
   ipcMain.handle('codex-models', async (_, settings = {}) => listCodexModels({ binary: await resolveCodexBinary(settings) }))
   ipcMain.handle('codex-status', (_, settings = {}) => codexStatus(settings))
   ipcMain.handle('test-codex-connection', async (_, settings) => {
@@ -562,6 +613,14 @@ export default function initIpc() {
   })
   ipcMain.handle('save-llm-config', async (_, configToSave, { embedded = false } = {}) => {
     for (const config of configToSave) if (config.provider === 'codex-cli') { await resolveCodexBinary(config); validateContextWindow(config.contextWindowTokens, await codexContextLimits(config.model)) }
+    for (const config of configToSave) if (config.provider === 'pi-cli' && config.enabled !== false) {
+      await resolvePiBinary(config)
+      if (config.contextWindowTokens) {
+        const models = await listPiModels(config)
+        const selected = config.model ? models.find(item => item.id === config.model) : models.find(item => item.isDefault)
+        validateContextWindow(config.contextWindowTokens, selected?.contextLimits)
+      }
+    }
     await writeConfigFile('llm.json', configToSave)
     if (!embedded) ipcMain.emit('llm-config-saved')
   })
@@ -636,7 +695,7 @@ export default function initIpc() {
     if (!Array.isArray(llmConfigList) || !llmConfigList?.length) {
       throw new Error('CANNOT_FIND_VALID_CONFIG')
     }
-    if (llmConfigList.some((it) => (llmConfigList.length === 1 || it.enabled) && it.provider !== 'codex-cli' && !/^http(s)?:\/\//.test(it.providerCompleteApiUrl))) {
+    if (llmConfigList.some((it) => (llmConfigList.length === 1 || it.enabled) && !['codex-cli', 'pi-cli'].includes(it.provider) && !/^http(s)?:\/\//.test(it.providerCompleteApiUrl))) {
       throw new Error('CANNOT_FIND_VALID_CONFIG')
     }
     if (llmConfigList.length > 1) {

@@ -207,6 +207,7 @@ export const requestNewMessageContent = async (
           reasoningEffort: llmConfig.reasoningEffort,
           contextWindowTokens: llmConfig.contextWindowTokens,
           codexDetectionMode: llmConfig.codexDetectionMode, codexBinaryPath: llmConfig.codexBinaryPath,
+          piDetectionMode: llmConfig.piDetectionMode, piBinaryPath: llmConfig.piBinaryPath,
           baseURL: llmConfig.providerCompleteApiUrl,
           apiKey: llmConfig.providerApiSecret,
           model: llmConfig.model

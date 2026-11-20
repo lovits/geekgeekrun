@@ -16,7 +16,7 @@
         <section data-setting="scope" tabindex="-1" class="settings-card">
           <div class="card-heading"><h3>筛选范围</h3></div>
           <JobFilterMode scope="ai" compact />
-          <div class="field-label">提供给模型的资料</div>
+          <div class="field-label">提供给模型的资料<el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 340px; line-height: 1.8"><p>按匹配需要勾选，各项资料尽量各有侧重：简历写真实经历与能力，求职偏好写目标与取舍，筛选条件写具体限制。</p><p>不要在多个资料中反复粘贴同一段内容。使用模板后按需删减，保留必要信息，避免重复或过多文本；内容有重合时，也应保持一致，不要互相矛盾。</p></div></template><button type="button" class="preference-help" aria-label="提供给模型的资料说明"><QuestionFilled /></button></el-tooltip></div>
           <div class="input-grid"><el-checkbox :data-setting="'input-' + item.key" v-for="item in inputOptions" :key="item.key" v-model="settings.inputSources[item.key]" :disabled="settings.loading" @change="saveInputSources">{{ item.label }}</el-checkbox></div>
           
         </section>
@@ -34,8 +34,13 @@
             </el-collapse-item></el-collapse>
           </section>
           <section class="settings-card">
-            <div class="card-heading"><h3>求职偏好</h3><el-tag size="small" effect="plain">个人设置</el-tag></div>
-            <el-form-item data-setting="preferences" label="手写偏好"><el-input v-model="config.preferences" type="textarea" :rows="7" maxlength="20000" /></el-form-item>
+            <div class="card-heading"><h3>求职偏好</h3><el-dropdown @command="preferenceTemplateVisible = true"><el-button size="small">求职偏好模板 <el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="agent">Agent开发</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div>
+            <section v-if="preferenceTemplateVisible" class="preference-template">
+              <h4>Agent开发模板</h4>
+              <el-input :model-value="agentPreferenceTemplate" type="textarea" :rows="10" readonly aria-label="Agent开发模板预览" />
+              <div class="actions"><el-button type="primary" @click="config.preferences = agentPreferenceTemplate; preferenceTemplateVisible = false">替换手写偏好（保存后生效）</el-button><el-button @click="preferenceTemplateVisible = false">取消</el-button></div>
+            </section>
+            <el-form-item data-setting="preferences"><template #label><span>手写偏好</span><el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 340px; line-height: 1.8"><p>模板涵盖多类信息，使用时请按实际需要填写、删减，不必全部保留。</p><p>重点写想做的工作、个人取舍和必要限制。若已勾选简历、筛选条件等资料，不要再把同样内容整段复制到偏好里；未勾选但判断必需的信息，可在这里简要补充。</p><p>提供给模型的资料应简洁、相关，避免堆入过多文本或反复表达同一要求。</p></div></template><button type="button" class="preference-help" aria-label="手写偏好填写说明"><QuestionFilled /></button></el-tooltip></template><el-input v-model="config.preferences" type="textarea" :rows="7" maxlength="20000" /></el-form-item>
             
             <el-collapse v-model="feedbackSections" class="quiet-collapse"><el-collapse-item name="feedback"><template #title>反馈学习的偏好 <el-tag size="small" :type="settings.inputSources.feedback ? 'success' : 'info'" style="margin-left: 6px">{{ settings.inputSources.feedback ? '已启用' : '已关闭' }}</el-tag><el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 350px; line-height: 1.8">根据明确标记，通过 TF-IDF／Rocchio 计算内容偏好，最多调整正负 10 分；大模型生成只读摘要。关闭后仅保存标记，不学习、不影响匹配；重新开启按当前标记重新生成。不能覆盖手写偏好或硬性条件。</div></template><QuestionFilled @click.stop style="width: 14px; height: 14px; margin-left: 6px" aria-label="反馈学习偏好说明" /></el-tooltip></template>
               <el-input data-setting="feedback" :model-value="config.learnedPreferences || '尚无学习摘要'" type="textarea" :rows="4" readonly />
@@ -94,13 +99,15 @@
 import JobFilterMode from '@renderer/features/JobFilterMode/index.vue'
 import JobModelInputPreview from '@renderer/features/JobModelInputPreview/index.vue'
 import { useJobFilterSettings } from '@renderer/store/job-filter-settings'
-import { QuestionFilled } from '@element-plus/icons-vue'
+import { QuestionFilled, ArrowDown } from '@element-plus/icons-vue'
+import { agentPreferenceTemplate } from './preference-template'
 import { ref, onMounted, onActivated, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 const route = useRoute()
 const advancedSections = ref<string[]>([])
 const feedbackSections = ref<string[]>([])
+const preferenceTemplateVisible = ref(false)
 const pageRoot = ref<HTMLElement>()
 async function revealSetting() {
   const focus = String(route.query.focus || '')
@@ -138,7 +145,7 @@ function briefReason(reason: string) { return reason?.length > 55 ? reason.slice
 function showDetails(row: any) { selectedResult.value = row; detailsVisible.value = true }
 
 const modelInfo = ref({ provider: '读取中', model: '', account: '', reasoningEffort: '' })
-const inputOptions = [{key: 'activity', label: 'BOSS活跃度（沿用自动开聊设置）'}, {key: 'resume', label: '我的简历内容'}, {key: 'preferences', label: '我的求职偏好'}, {key: 'regexRules', label: '公共正则条件'}, {key: 'employmentAndTraversal', label: '求职类型与遍历方式'}, {key: 'pageFilters', label: '城市、经验、学历等条件'}, {key: 'companyRules', label: '公司名单与屏蔽规则'}, {key: 'feedback', label: '反馈学习（喜欢／不喜欢）'}]
+const inputOptions = [{key: 'resume', label: '我的简历内容'}, {key: 'preferences', label: '我的求职偏好'}, {key: 'regexRules', label: '公共正则条件'}, {key: 'employmentAndTraversal', label: '求职类型与遍历方式'}, {key: 'pageFilters', label: '城市、经验、学历等条件'}, {key: 'companyRules', label: '公司名单与屏蔽规则'}, {key: 'feedback', label: '反馈学习（喜欢／不喜欢）'}]
 const inputPreview = ref<Record<string, any> | null>(null)
 const inputPreviewVisible = ref(false)
 const previewLoading = ref(false)
@@ -220,6 +227,8 @@ async function testMatch() {
 
 <style scoped lang="scss">
 .ai-match-page { --card-border: var(--el-border-color-light); color: var(--el-text-color-primary); min-width: 0; }
+.preference-template { margin: 12px 0; } .preference-template h4 { margin: 0 0 8px; }
+.preference-help { display: inline-flex; align-items: center; margin-left: 6px; padding: 0; border: 0; background: transparent; color: var(--el-text-color-secondary); cursor: help; } .preference-help svg { width: 14px; height: 14px; } .preference-help:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; border-radius: 50%; }
 .page-heading, .card-heading, .model-strip, .save-bar, .test-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .page-heading { margin-bottom: 20px; } h2 { margin: 0; font-size: 24px; letter-spacing: -.4px; } h3 { margin: 0; font-size: 16px; } p { line-height: 1.6; }
 .page-heading p, .helper { margin: 6px 0 0; color: var(--el-text-color-secondary); font-size: 13px; }

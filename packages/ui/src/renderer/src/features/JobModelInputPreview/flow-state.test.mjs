@@ -2,12 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { jobMatchFlow, groupFlowInputs } from './flow-state.mjs'
 test('every source switch controls only its corresponding flow node', () => {
-  const keys = ['resume','preferences','feedback','employmentAndTraversal','regexRules','pageFilters','companyRules','activity']
-  for (let mask=0;mask<256;mask++) {
+  const keys = ['resume','preferences','feedback','employmentAndTraversal','regexRules','pageFilters','companyRules']
+  for (let mask=0;mask<128;mask++) {
     const inputSources=Object.fromEntries(keys.map((key,index)=>[key,Boolean(mask&(1<<index))]))
     const flow=jobMatchFlow({selectedFields:['postDescription'],inputSources})
     for (const key of keys) assert.equal(flow.personal.find(item=>item.key===key).enabled,inputSources[key])
-    assert.equal(flow.boss.find(item=>item.key==='bossActivity').enabled,inputSources.activity)
+    assert.equal(flow.boss.some(item=>item.key==='bossActivity'),false)
     assert.equal(flow.boss.find(item=>item.key==='jobName').enabled,false)
     assert.equal(flow.boss.find(item=>item.key==='postDescription').enabled,true)
     assert.equal(flow.boss.some(item=>item.key==='salary'),false)

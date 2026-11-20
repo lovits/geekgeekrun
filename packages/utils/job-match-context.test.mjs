@@ -71,7 +71,7 @@ test('activity requirement follows the saved automatic chat threshold and input 
  assert.equal(context.activityRequirement,'3日内活跃')
  const candidate={jobInfo:{postDescription:'Agent开发'},bossInfo:{activeTimeDesc:'今日活跃'}}
  const payload=matchingPayload({enabled:true,filterContext:context},candidate)
- assert.equal(payload.filterContext.activityRequirement,'3日内活跃');assert.equal(payload.bossActivity,'今日活跃')
+ assert.equal('activityRequirement' in payload.filterContext,false);assert.equal('bossActivity' in payload,false)
  const disabled=matchingPayload({enabled:true,filterContext:context,inputSources:{activity:false}},candidate)
  assert.equal('bossActivity' in disabled,false);assert.equal('activityCutoff' in disabled.filterContext,false)
 })

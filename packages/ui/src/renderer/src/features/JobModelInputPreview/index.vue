@@ -17,7 +17,7 @@
       <div v-if="payload.feedbackRecommendation" class="switch-grid"><div><h4>内容相似度调整</h4><p>{{ signedAdjustment }} 分 · 最多正负 10 分</p></div><div><h4>正负样本</h4><p>喜欢 {{ payload.feedbackRecommendation.likeCount || 0 }} 条 · 不喜欢 {{ payload.feedbackRecommendation.dislikeCount || 0 }} 条</p></div></div>
       <el-collapse v-if="payload.feedbackExamples?.length"><el-collapse-item title="本次参考的历史岗位" name="examples"><article v-for="(item, index) in payload.feedbackExamples" :key="index" class="feedback-example"><el-tag :type="item.value === 'like' ? 'success' : 'info'" size="small">{{ item.value === 'like' ? '喜欢' : '不喜欢' }}</el-tag><h4>{{ item.company }} · {{ item.jobName }}</h4><div class="text-content">{{ item.description }}</div></article></el-collapse-item></el-collapse>
     </section>
-    <section class="preview-card"><el-collapse><el-collapse-item title="固定审核规则与输出要求" name="system"><div class="text-content">{{ payload.systemInstructions }}</div></el-collapse-item></el-collapse></section>
+    <section class="preview-card"><el-collapse><el-collapse-item name="system"><template #title><span>固定审核规则与输出要求</span><el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 360px; line-height: 1.8"><p>先由程序规则筛选，再由模型比较本次勾选的用户资料与岗位字段，给出匹配结论、总分、理由和差异。</p><p><strong>职责40分：</strong>岗位实际工作与你想做、想尝试的方向是否相符。</p><p><strong>技能30分：</strong>已有知识、技术栈和项目经历能否支撑工作，差距能否迁移或学习。</p><p><strong>资格10分：</strong>学历、专业、届别、实习身份、地点及到岗安排等客观要求是否符合。</p><p><strong>偏好20分：</strong>岗位是否符合你的优先方向、接受意愿和个人取舍；启用反馈时也参考提供的软偏好。</p><p>模型参考上述比例给出0—100总分，程序不会逐项精确计算或单独返回四项分数。明确的硬性冲突仍可拒绝，不能靠其他项高分抵消；反馈分数调整由程序另算，不重复计分。</p></div></template><button type="button" class="score-help" aria-label="评分方式说明" @click.stop><QuestionFilled /></button></el-tooltip></template><div class="text-content">{{ payload.systemInstructions }}</div></el-collapse-item></el-collapse></section>
   </div>
 </template>
 <script setup lang="ts">
@@ -44,6 +44,7 @@ h3 { margin: 0 0 14px; font-size: 16px; } h4 { font-size: 13px; margin: 16px 0 8
 .job-meta { color: var(--el-text-color-secondary); font-size: 13px; gap: 12px 24px; }
 .switch-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 .text-content { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.85; }
+.score-help { display: inline-flex; align-items: center; justify-content: center; margin-left: 6px; padding: 0; border: 0; background: transparent; color: var(--el-text-color-secondary); cursor: help; }.score-help svg { width: 15px; height: 15px; }.score-help:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; border-radius: 50%; }
 .feedback-example { border-bottom: 1px solid var(--el-border-color-light); padding: 16px 0; }
 :deep(.el-collapse) { border: 0; } :deep(.el-collapse-item__header) { background: transparent; line-height: 1.6; min-height: 44px; height: auto; border: 0; } :deep(.el-collapse-item__wrap) { border: 0; }
 @media (max-width: 640px) { .preview-card { padding: 16px; } .switch-grid { grid-template-columns: minmax(0, 1fr); gap: 0; } }

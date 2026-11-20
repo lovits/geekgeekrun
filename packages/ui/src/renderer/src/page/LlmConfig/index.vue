@@ -1,21 +1,21 @@
 <template>
   <div class="llm-config-page" :class="{ embedded }">
-    <header class="window-heading"><h2>大语言模型设置</h2></header>
+    <header class="window-heading"><h2>大语言模型设置 <el-tooltip placement="bottom-start" :enterable="false"><template #content><div style="max-width: 360px; line-height: 1.8"><p>模型怎么选？</p><p>本项目先用程序规则过滤，再让模型比较求职资料与岗位信息、输出评分和理由。可先选择响应较快的小模型，推理强度从 low（低）开始；只选择该模型实际支持的强度。</p><p>用同一批岗位测试：能否稳定输出规定格式、理解主要职责、区分必需项与加分项、遵守个人偏好。若反复误判复杂职责或资格条件，再提高强度或换更强的模型。</p><p>已有连接测试只能证明接口可用，不能证明小模型与强模型的匹配效果相同。实际速度、用量和效果应以同一批任务的对比结果为准；“测试连接”也不会验证完整筛选流程。</p><p>简历整理与反馈摘要同样需要核对事实，不能只看语言是否流畅。</p></div></template><button type="button" class="model-help" aria-label="模型选择与测试说明"><QuestionFilled /></button></el-tooltip></h2></header>
     <div class="main-wrapper"><main>
       <section class="provider-card">
         <el-form label-position="top"><el-form-item label="接入方式">
-          <el-select v-model="activeProvider" @change="ensureProviderConfig"><el-option label="本机 Codex" value="codex-cli" /><el-option label="API 接入（OpenAI 兼容）" value="openai" /></el-select>
+          <el-select v-model="activeProvider" @change="ensureProviderConfig"><el-option label="本机 Pi（本地调用推荐使用，任务执行迅速）" value="pi-cli" /><el-option label="本机 Codex" value="codex-cli" /><el-option label="API 接入（OpenAI 兼容）" value="openai" /></el-select>
         </el-form-item></el-form>
       </section>
       <el-form ref="formRef" :model="formContentForElForm" :rules="formRulesForElForm" label-position="top" class="llm-config-form" :validate-on-rule-change="false">
         <section v-for="{ conf, index } in visibleConfigEntries" :key="conf.id" class="model-card">
           <div v-if="visibleConfigEntries.length > 1" class="model-card-heading"><strong>模型 {{ visibleConfigEntries.findIndex(item => item.index === index) + 1 }}</strong><div class="model-order"><el-button circle size="small" :icon="ArrowUp" aria-label="模型上移" :disabled="index <= visibleConfigEntries[0].index" @click="moveConfigUp(index)" /><el-button circle size="small" :icon="ArrowDown" aria-label="模型下移" :disabled="index >= visibleConfigEntries[visibleConfigEntries.length - 1].index" @click="moveConfigDown(index)" /><el-button circle size="small" :icon="Delete" aria-label="删除备用模型" @click="removeConfig(index)" /></div></div>
-          <div v-if="conf.provider === 'codex-cli'" class="account-panel">
-            <el-form-item label="Codex 识别方式"><el-radio-group v-model="conf.codexDetectionMode" @change="refreshCodex(conf)"><el-radio value="auto">自动识别</el-radio><el-radio value="manual">手动选择</el-radio></el-radio-group></el-form-item>
-            <el-form-item v-if="conf.codexDetectionMode === 'manual'" label="Codex 可执行文件"><el-input v-model="conf.codexBinaryPath" placeholder="选择 codex 或 codex.exe"><template #append><el-button @click="chooseCodex(conf)">选择文件</el-button></template></el-input><p class="helper">本机自动识别路径：{{ codexAccount.binary || '尚未识别，请点刷新' }}</p><p class="helper">Windows npm 安装示例：C:\Users\用户名\AppData\Roaming\npm\node_modules\@openai\codex\vendor\x86_64-pc-windows-msvc\codex\codex.exe（以本机实际安装目录为准，不选择 codex.cmd）。</p></el-form-item>
+          <div v-if="isLocalCli(conf.provider)" class="account-panel">
+            <el-form-item :label="`${cliName(conf)} 识别方式`"><el-radio-group v-model="conf[detectionKey(conf)]" @change="refreshCodex(conf)"><el-radio value="auto">自动识别</el-radio><el-radio value="manual">手动选择</el-radio></el-radio-group></el-form-item>
+            <el-form-item v-if="conf[detectionKey(conf)] === 'manual'" :label="`${cliName(conf)} 可执行文件`"><el-input v-model="conf[binaryKey(conf)]" :placeholder="conf.provider === 'pi-cli' ? '选择 pi、pi.exe 或 dist/cli.js' : '选择 codex 或 codex.exe'"><template #append><el-button @click="chooseCodex(conf)">选择文件</el-button></template></el-input><p class="helper">本机自动识别路径：{{ codexAccount.binary || '尚未识别，请点刷新' }}</p><p v-if="conf.provider === 'pi-cli'" class="helper">Mac 示例：~/.local/bin/pi；Windows 示例：C:\Users\用户名\AppData\Roaming\npm\node_modules\@earendil-works\pi-coding-agent\dist\cli.js。</p><p v-else class="helper">Windows npm 安装示例：C:\Users\用户名\AppData\Roaming\npm\node_modules\@openai\codex\vendor\x86_64-pc-windows-msvc\codex\codex.exe（以本机实际安装目录为准，不选择 codex.cmd）。</p></el-form-item>
 
-            <div class="account-summary"><el-tag :type="codexAccount.loggedIn ? 'success' : 'info'" effect="plain">{{ codexAccount.loggedIn ? '已登录' : '未登录' }}</el-tag><span>{{ codexAccount.email || '使用本机 Codex 登录账号' }}</span></div>
-            <div class="account-actions"><el-button size="small" @click="refreshCodex">刷新账号与模型</el-button><el-button size="small" :loading="testingCodex" @click="testCodex(conf)">测试连接</el-button></div>
+            <div class="account-summary"><el-tag :type="codexAccount.loggedIn ? 'success' : 'info'" effect="plain">{{ codexAccount.loggedIn ? (conf.provider === 'pi-cli' ? '已配置凭据' : '已登录') : '未登录／未配置' }}</el-tag><span>{{ codexAccount.email || `使用本机 ${cliName(conf)} 配置` }}</span></div>
+            <div class="account-actions"><el-button size="small" @click="refreshCodex(conf)">刷新账号与模型</el-button><el-button size="small" :loading="testingCodex" @click="testCodex(conf)">测试连接</el-button></div>
             <p v-if="codexTestResult" class="connection-result" role="status">{{ codexTestResult }}</p>
             <el-collapse class="quiet-collapse"><el-collapse-item title="CLI 与登录信息" name="cli"><p class="path-text">{{ codexAccount.binary }}</p><p>{{ codexAccount.loginMethod }}</p><p class="helper">模型目录不代表账号权限，以测试连接为准。</p></el-collapse-item></el-collapse>
           </div>
@@ -26,17 +26,17 @@
             </div>
           </template>
           <el-form-item label="模型">
-            <el-select v-if="conf.provider === 'codex-cli'" v-model="conf.model" placeholder="自动选择" filterable @change="() => { conf.reasoningEffort = ''; conf.contextWindowTokens = 0 }"><el-option label="自动选择（Codex 默认）" value="" /><el-option v-for="item in codexModels" :key="item.id" :label="item.displayName || item.id" :value="item.id" /></el-select>
+            <el-select v-if="isLocalCli(conf.provider)" v-model="conf.model" placeholder="自动选择" filterable @change="handleModelChange(conf)"><el-option :label="`自动选择（${cliName(conf)} 默认）`" value="" /><el-option v-for="item in codexModels" :key="item.id" :label="item.displayName || item.id" :value="item.id" /></el-select>
             <el-input v-else v-model="conf.model" placeholder="模型名称" />
           </el-form-item>
-          <template v-if="conf.provider === 'codex-cli'">
+          <template v-if="isLocalCli(conf.provider)">
             <div class="parameter-grid">
-              <el-form-item label="推理强度"><el-select v-model="conf.reasoningEffort" placeholder="模型默认"><el-option label="模型默认" value="" /><el-option v-for="item in reasoningOptions(conf.model)" :key="item.reasoningEffort" :label="item.reasoningEffort" :value="item.reasoningEffort" /></el-select></el-form-item>
-              <el-form-item label="上下文长度（tokens）"><el-input-number v-if="contextLimits(conf.model)" :model-value="conf.contextWindowTokens || contextLimits(conf.model).defaultTokens" :min="contextLimits(conf.model).minTokens" :max="contextLimits(conf.model).maxTokens" :step="1000" :precision="0" @update:model-value="value => { conf.contextWindowTokens = value || 0 }" /><span v-else class="helper">跟随模型默认</span></el-form-item>
+              <el-form-item><template #label>推理强度 <el-tooltip content="推理强度不宜过高，可先选择较轻量的模型和中等强度，例如 GPT-6 Luna 的 medium（如账号支持）；具体速度与匹配效果请以测试为准。" placement="top"><button type="button" class="model-help" aria-label="推理强度说明"><QuestionFilled /></button></el-tooltip></template><el-select v-model="conf.reasoningEffort" placeholder="模型默认"><el-option label="模型默认" value="" /><el-option v-for="item in reasoningOptions(conf.model)" :key="item.reasoningEffort" :label="item.reasoningEffort" :value="item.reasoningEffort" /></el-select></el-form-item>
+              <el-form-item label="上下文长度（tokens）"><el-input-number v-if="contextLimits(conf.model)" :disabled="conf.provider === 'pi-cli'" :model-value="conf.contextWindowTokens || contextLimits(conf.model).defaultTokens" :min="contextLimits(conf.model).minTokens" :max="contextLimits(conf.model).maxTokens" :step="1000" :precision="0" @update:model-value="value => { conf.contextWindowTokens = value || 0 }" /><span v-else class="helper">跟随模型默认</span></el-form-item>
             </div>
             <div v-if="contextLimits(conf.model)" class="context-info"><span>默认 {{ contextLimits(conf.model).defaultTokens.toLocaleString() }} · 范围 {{ contextLimits(conf.model).minTokens.toLocaleString() }}–{{ contextLimits(conf.model).maxTokens.toLocaleString() }}</span><el-button link type="primary" @click="conf.contextWindowTokens = 0">恢复默认</el-button></div>
             <p v-if="modelListError" class="error-text">{{ modelListError }}</p>
-            <el-collapse class="quiet-collapse"><el-collapse-item title="关于上下文" name="context"><p class="helper">范围来自本机模型资料，实际支持以连接测试为准。调整长度不能增加模型上限；未自定义时使用模型默认值。</p></el-collapse-item></el-collapse>
+            <el-collapse class="quiet-collapse"><el-collapse-item title="关于上下文" name="context"><p v-if="conf.provider === 'pi-cli'" class="helper">Pi 使用模型原生上下文长度，此处显示实际上限，不能覆盖 Pi 的模型配置。</p><p v-else class="helper">范围来自本机模型资料，实际支持以连接测试为准。调整长度不能增加模型上限；未自定义时使用模型默认值。</p></el-collapse-item></el-collapse>
           </template>
           <el-form-item v-else label="API Secret"><el-input v-model="conf.providerApiSecret" type="password" show-password autocomplete="off" /></el-form-item>
           <div class="enable-row"><el-checkbox v-model="conf.enabled" v-if="visibleConfigEntries.length > 1">启用此模型</el-checkbox><el-checkbox v-else :model-value="true" disabled>启用此模型</el-checkbox><label class="weight-control">权重 <el-input-number v-if="visibleConfigEntries.length > 1" v-model="conf.serveWeight" :min="1" :max="100" :precision="0" size="small" /><el-input-number v-else :model-value="SINGLE_ITEM_DEFAULT_SERVE_WEIGHT" disabled size="small" /></label></div>
@@ -61,7 +61,7 @@ import {
   ElInput,
   ElMessage
 } from 'element-plus'
-import { ArrowUp, ArrowDown, Delete } from '@element-plus/icons-vue'
+import { ArrowUp, ArrowDown, Delete, QuestionFilled } from '@element-plus/icons-vue'
 import { ref, onMounted, onActivated, nextTick, computed } from 'vue'
 import { gtagRenderer as baseGtagRenderer } from '@renderer/utils/gtag'
 import { SINGLE_ITEM_DEFAULT_SERVE_WEIGHT } from '../../../../common/constant'
@@ -71,6 +71,8 @@ interface LlmConfigItem {
   provider?: string
   codexDetectionMode?: string
   codexBinaryPath?: string
+  piDetectionMode?: string
+  piBinaryPath?: string
   providerCompleteApiUrl: string
   providerApiSecret: string
   model: string
@@ -90,7 +92,7 @@ const gtagRenderer = (name, params?: object) => {
 function getNewConfigItem(): LlmConfigItem {
   return {
     id: uuid(),
-    codexDetectionMode: 'auto', codexBinaryPath: '',
+    codexDetectionMode: 'auto', codexBinaryPath: '', piDetectionMode: 'auto', piBinaryPath: '',
     provider: 'openai',
     providerCompleteApiUrl: '',
     providerApiSecret: '',
@@ -106,39 +108,58 @@ const testingCodex = ref(false)
 const codexTestResult = ref('')
 const codexModels = ref<any[]>([])
 const modelListError = ref('')
-function contextLimits(model: string) { return codexModels.value.find(it => it.id === model)?.contextLimits }
-function reasoningOptions(model: string) { return (codexModels.value.find(it => it.id === model)?.supportedReasoningEfforts || []).filter(item => ['low', 'medium', 'high', 'xhigh', 'max'].includes(item.reasoningEffort)) }
+let cliRefreshId = 0
+function isLocalCli(provider?: string) { return provider === 'codex-cli' || provider === 'pi-cli' }
+function cliName(conf: LlmConfigItem) { return conf.provider === 'pi-cli' ? 'Pi' : 'Codex' }
+function detectionKey(conf: LlmConfigItem): 'piDetectionMode' | 'codexDetectionMode' { return conf.provider === 'pi-cli' ? 'piDetectionMode' : 'codexDetectionMode' }
+function binaryKey(conf: LlmConfigItem): 'piBinaryPath' | 'codexBinaryPath' { return conf.provider === 'pi-cli' ? 'piBinaryPath' : 'codexBinaryPath' }
+function contextLimits(model: string) { return codexModels.value.find(it => model ? it.id === model : it.isDefault)?.contextLimits }
+function reasoningOptions(model: string) { return (codexModels.value.find(it => model ? it.id === model : it.isDefault)?.supportedReasoningEfforts || []).filter(item => ['low', 'medium', 'high', 'xhigh', 'max'].includes(item.reasoningEffort)) }
+function handleModelChange(config: LlmConfigItem) { config.reasoningEffort = ''; config.contextWindowTokens = 0 }
 async function refreshCodex(settings?: any) {
-  const config = settings?.provider ? settings : formContent.value.find(it => it.provider === 'codex-cli') || {}
-  if (config.codexDetectionMode === 'manual' && !config.codexBinaryPath) config.codexBinaryPath = codexAccount.value.binary || ''
-  try { codexAccount.value = await electron.ipcRenderer.invoke('codex-status', JSON.parse(JSON.stringify(config))) }
-  catch(error) { codexAccount.value = { loggedIn: false, email: '', binary: config.codexBinaryPath || '', loginMethod: '识别失败' }; codexModels.value = []; modelListError.value = String(error); return }
-  modelListError.value = ''
-  try { codexModels.value = await electron.ipcRenderer.invoke('codex-models', JSON.parse(JSON.stringify(config))) }
-  catch (error) { modelListError.value = String(error) }
+  const config = settings?.provider ? settings : formContent.value.find(it => it.provider === activeProvider.value) || {}
+  if (!isLocalCli(config.provider)) return
+  const refreshId = ++cliRefreshId
+  const current = () => refreshId === cliRefreshId && activeProvider.value === config.provider
+  const prefix = config.provider === 'pi-cli' ? 'pi' : 'codex'
+  if (config[detectionKey(config)] === 'manual' && !config[binaryKey(config)]) config[binaryKey(config)] = codexAccount.value.binary || ''
+  codexTestResult.value = ''; codexModels.value = []; modelListError.value = ''
+  try {
+    const status = await electron.ipcRenderer.invoke(`${prefix}-status`, JSON.parse(JSON.stringify(config)))
+    if (!current()) return
+    codexAccount.value = status
+  }
+  catch(error) { if (!current()) return; codexAccount.value = { loggedIn: false, email: '', binary: config[binaryKey(config)] || '', loginMethod: '识别失败' }; modelListError.value = String(error); return }
+  try {
+    const models = await electron.ipcRenderer.invoke(`${prefix}-models`, JSON.parse(JSON.stringify(config)))
+    if (current()) codexModels.value = models
+  }
+  catch (error) { if (current()) modelListError.value = String(error) }
 }
 
 async function chooseCodex(config: LlmConfigItem) {
-  const result = await electron.ipcRenderer.invoke('choose-file', { fileChooserConfig: { title: '选择 Codex 可执行文件', properties: ['openFile'] } })
-  if (result?.filePaths?.[0]) { config.codexBinaryPath = result.filePaths[0]; await refreshCodex(config) }
+  const result = await electron.ipcRenderer.invoke('choose-file', { fileChooserConfig: { title: `选择 ${cliName(config)} CLI 文件`, properties: ['openFile'] } })
+  if (result?.filePaths?.[0]) { config[binaryKey(config)] = result.filePaths[0]; await refreshCodex(config) }
 }
 
 async function testCodex(config: LlmConfigItem) {
   testingCodex.value = true
   try {
-    codexTestResult.value = await electron.ipcRenderer.invoke('test-codex-connection', { codexDetectionMode: config.codexDetectionMode, codexBinaryPath: config.codexBinaryPath, model: config.model, reasoningEffort: config.reasoningEffort || '', contextWindowTokens: config.contextWindowTokens || 0 })
-  } catch (error) {
-    codexTestResult.value = String(error)
-  } finally {
-    testingCodex.value = false
-  }
+    const prefix = config.provider === 'pi-cli' ? 'pi' : 'codex'
+    codexTestResult.value = await electron.ipcRenderer.invoke(`test-${prefix}-connection`, JSON.parse(JSON.stringify(config)))
+  } catch (error) { codexTestResult.value = String(error) }
+  finally { testingCodex.value = false }
 }
 const formRef = ref<InstanceType<typeof ElForm>>()
 const formContent = ref<LlmConfigItem[]>([getNewConfigItem()])
 const activeProvider = ref('openai')
 const visibleConfigEntries = computed(() => formContent.value.map((conf, index) => ({ conf, index })).filter(({ conf }) => (conf.provider || 'openai') === activeProvider.value))
-function ensureProviderConfig() {
-  if (!visibleConfigEntries.value.length) formContent.value.push({ ...getNewConfigItem(), provider: activeProvider.value, providerCompleteApiUrl: activeProvider.value === 'codex-cli' ? 'codex://local' : '' })
+async function ensureProviderConfig() {
+  ++cliRefreshId
+  codexAccount.value = { loggedIn: false, email: '', binary: '', loginMethod: '' }
+  codexModels.value = []; codexTestResult.value = ''; modelListError.value = ''
+  if (!visibleConfigEntries.value.length) formContent.value.push({ ...getNewConfigItem(), provider: activeProvider.value, providerCompleteApiUrl: isLocalCli(activeProvider.value) ? (activeProvider.value === 'pi-cli' ? 'pi://local' : 'codex://local') : '' })
+  await refreshCodex()
 }
 
 
@@ -152,7 +173,7 @@ const formContentForElForm = computed(() => {
 const formRulesForElForm = computed(() => {
   const valueMap = {}
   formContent.value.forEach((conf, i) => {
-    if ((conf.provider || 'openai') !== activeProvider.value || conf.provider === 'codex-cli') return
+    if ((conf.provider || 'openai') !== activeProvider.value || isLocalCli(conf.provider)) return
     valueMap[`${i}_providerCompleteApiUrl`] = [
       {
         required: true,
@@ -219,7 +240,6 @@ const handleSubmit = async () => {
 }
 
 async function loadSettings() {
-  await refreshCodex()
   const savedFileContent = (await electron.ipcRenderer.invoke('fetch-config-file-content'))
     ?.config?.['llm.json']
   if (!savedFileContent?.length) {
@@ -237,9 +257,12 @@ async function loadSettings() {
     conf.provider = conf.provider || 'openai'
     conf.codexDetectionMode ||= 'auto'
     conf.codexBinaryPath ||= ''
+    conf.piDetectionMode ||= 'auto'
+    conf.piBinaryPath ||= ''
     return conf
   })
   activeProvider.value = formContent.value.find(it => it.enabled)?.provider || formContent.value[0]?.provider || 'openai'
+  await refreshCodex()
 }
 onMounted(() => { if (!embedded) loadSettings() })
 onActivated(() => { if (embedded) loadSettings() })
@@ -350,7 +373,7 @@ function handlePresetClick(selected: (typeof llmPresetList)[number], index) {
 const firstInputRefList = ref<InstanceType<typeof ElInput>[]>([])
 function addConfig() {
   gtagRenderer('new_config_item_added', { config_list_length_before_add: formContent.value.length })
-  formContent.value.push({ ...getNewConfigItem(), provider: activeProvider.value, providerCompleteApiUrl: activeProvider.value === 'codex-cli' ? 'codex://local' : '' })
+  formContent.value.push({ ...getNewConfigItem(), provider: activeProvider.value, providerCompleteApiUrl: isLocalCli(activeProvider.value) ? (activeProvider.value === 'pi-cli' ? 'pi://local' : 'codex://local') : '' })
   nextTick(() => {
     firstInputRefList.value[firstInputRefList.value.length - 1]?.focus()
   })
@@ -386,6 +409,7 @@ const openExternalLink = (url) => {
 <style lang="scss" scoped>
 .llm-config-page { height: 100vh; display: flex; flex-direction: column; min-width: 0; overflow: hidden; color: var(--el-text-color-primary); background: var(--el-bg-color); font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; }
 .window-heading { width: 100%; max-width: 1056px; box-sizing: border-box; margin: 0 auto; padding: 24px 28px 0; background: var(--el-bg-color); } h2 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -.4px; } .window-heading p { margin: 6px 0 0; font-size: 13px; color: var(--el-text-color-secondary); }
+.model-help { display: inline-flex; vertical-align: middle; padding: 0; border: 0; background: transparent; color: var(--el-text-color-secondary); cursor: help; } .model-help svg { width: 15px; height: 15px; } .model-help:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; border-radius: 50%; }
 .main-wrapper { flex: 1; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden; } main { box-sizing: border-box; width: 100%; max-width: 1040px; padding: 24px 28px; margin: 0 auto; }
 .provider-card, .model-card { box-sizing: border-box; min-width: 0; padding: 22px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(15, 23, 42, .025); border: 1px solid var(--el-border-color-light); border-radius: 12px; background: var(--el-bg-color); }
 .model-card-heading, .account-summary, .account-actions, .api-tools, .context-info, .enable-row, .model-order { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; } .model-card-heading { justify-content: space-between; margin-bottom: 18px; } .model-order { gap: 4px; } .model-order .el-button + .el-button { margin-left: 0; }

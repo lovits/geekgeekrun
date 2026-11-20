@@ -45,7 +45,7 @@
               >项目首页</el-button
             >
             |
-            <el-button type="text" size="small" @click="handleFeedbackClick">反馈问题</el-button> | <el-button type="text" size="small" @click="$router.push('/main-layout/Updates')">自动更新</el-button>
+            <el-button type="text" size="small" @click="handleFeedbackClick">反馈问题</el-button> | <el-button type="text" size="small" @click="$router.push('/main-layout/Updates')">设置</el-button>
           </div>
         </div>
       </div>

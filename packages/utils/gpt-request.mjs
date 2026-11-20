@@ -1,3 +1,4 @@
+import { piCompletion } from './pi-request.mjs';
 import { codexCompletion } from './codex-request.mjs';
 import OpenAI from "openai";
 
@@ -6,6 +7,8 @@ export async function completes(
     provider,
     codexDetectionMode,
     codexBinaryPath,
+    piDetectionMode,
+    piBinaryPath,
     baseURL,
     apiKey,
     model,
@@ -15,6 +18,7 @@ export async function completes(
   },
   messages
 ) {
+  if (provider === 'pi-cli') return piCompletion(messages, model, { reasoningEffort, contextWindowTokens, piDetectionMode, piBinaryPath });
   if (provider === 'codex-cli') return codexCompletion(messages, model, { reasoningEffort, contextWindowTokens, codexDetectionMode, codexBinaryPath });
   const openai = new OpenAI({
     baseURL,
