@@ -1,6 +1,8 @@
+import { jobExperienceIssue } from './job-screening.mjs'
+
 export function jobFilterOptions(config = {}) {
   const legacyAi = config.enabled === true
-  const regex = { jobName: true, positionName: true, postDescription: !legacyAi, companies: true, blockedCompanies: true, ...config.regexFilters }
+  const regex = { experienceName: false, jobName: true, positionName: true, postDescription: !legacyAi, companies: true, blockedCompanies: true, ...config.regexFilters }
   const ai = { jobName: false, postDescription: legacyAi, ...config.aiFilters }
   for (const options of [regex, ai]) {
     for (const key of Object.keys(options)) if (typeof options[key] !== 'boolean') throw new Error('筛选开关必须为布尔值')
@@ -15,7 +17,8 @@ export function jobRegexPatterns(patterns, config) {
 
 export function testJobRegex(job, patterns, matchLogic = 1) {
   try {
-    const active = Object.entries(patterns).filter(([, pattern]) => pattern?.trim())
+    if (jobExperienceIssue(job, patterns.experienceName)) return false
+    const active = Object.entries(patterns).filter(([field, pattern]) => field !== 'experienceName' && pattern?.trim())
     if (!active.length) return true
     const results = active.map(([field, pattern]) => new RegExp(pattern, 'im').test(job[field]?.replace(/\n/g, '') || ''))
     return matchLogic === 2 ? results.some(Boolean) : results.every(Boolean)
@@ -24,13 +27,14 @@ export function testJobRegex(job, patterns, matchLogic = 1) {
 
 export function jobRegexFailures(job, patterns, matchLogic = 1) {
   if (testJobRegex(job, patterns, matchLogic)) return []
+  const experienceIssue = jobExperienceIssue(job, patterns.experienceName)
   const labels = { jobName: '岗位名称', positionName: '职位分类', postDescription: '岗位描述' }
-  return Object.entries(patterns).filter(([, pattern]) => pattern?.trim()).flatMap(([field, pattern]) => {
+  return [experienceIssue, ...Object.entries(patterns).filter(([field, pattern]) => field !== 'experienceName' && pattern?.trim()).flatMap(([field, pattern]) => {
     try {
       if (new RegExp(pattern, 'im').test(job[field]?.replace(/\n/g, '') || '')) return []
       return [`${labels[field] || field}未通过已开启的规则${field === 'postDescription' ? '，需核对职责关键词或排除条件' : `：“${job[field] || '未提供'}”`}`]
     } catch { return [`${labels[field] || field}规则无效`] }
-  })
+  })].filter(Boolean)
 }
 
 export function matchInputSources(config = {}) {

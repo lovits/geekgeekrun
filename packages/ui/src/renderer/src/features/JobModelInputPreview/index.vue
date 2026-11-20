@@ -28,7 +28,7 @@ import JobFilterSettingsPreview from '@renderer/features/JobFilterSettingsPrevie
 const showFlow = ref(false)
 const props = defineProps<{ payload: Record<string, any>; savedContext?: Record<string, any> }>()
 
-const fieldLabels: Record<string, string> = { jobName: '岗位名称', postDescription: '岗位描述', positionName: '职位类型', companies: '期望公司', blockedCompanies: '屏蔽公司' }
+const fieldLabels: Record<string, string> = { experienceName: '工作经验', jobName: '岗位名称', postDescription: '岗位描述', positionName: '职位类型', companies: '期望公司', blockedCompanies: '屏蔽公司' }
 const selectedFieldsLabel = computed(() => (props.payload.selectedFields || []).map((key: string) => fieldLabels[key] || key).join('、') || '未启用')
 const enabledRegexLabel = computed(() => Object.entries(props.payload.switches?.regex || {}).filter(([, value]) => value).map(([key]) => fieldLabels[key] || key).join('、') || '未启用')
 const contextSections = computed(() => ['employmentAndTraversal', 'regexRules', 'pageFilters', 'companyRules', 'activity'].filter(key => props.payload.inputSources?.[key]))

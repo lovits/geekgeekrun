@@ -4,3 +4,9 @@ database.sqlite
 
 
 .DS_Store
+
+# Local user data must never be shipped with source or installers.
+.geekgeekrun/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

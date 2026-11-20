@@ -1,5 +1,14 @@
 import { activeDescList } from '../geek-auto-start-chat-with-boss/constant.mjs'
 
+export function jobExperienceIssue(job = {}, pattern = '') {
+  if (!pattern?.trim()) return ''
+  try {
+    const experienceRegex = new RegExp(pattern, 'im')
+    return experienceRegex.test(job.experienceName || job.experience || '')
+      ? '' : `工作经验未通过已开启的规则：“${job.experienceName || job.experience || '未提供'}”`
+  } catch { return '工作经验正则无效' }
+}
+
 export function internshipIssue(job = {}) {
   if (job.invalidStatus) return '岗位已失效或停止招聘'
   if (Number(job.jobType) === 0 && job.jobType != null) return 'BOSS职位类型为全职／社招，不是实习'

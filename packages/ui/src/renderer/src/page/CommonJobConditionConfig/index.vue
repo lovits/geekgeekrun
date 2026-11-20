@@ -90,6 +90,13 @@
           </el-form-item>
         </div>
         </section>
+        <section data-setting="experienceName" tabindex="-1" class="settings-card">
+          <h3>工作经验 <el-tooltip content="工作经验原文必须匹配正则；本项独立于其他正则的且或关系。" placement="top"><span tabindex="0">ⓘ</span></el-tooltip></h3>
+          <el-form-item prop="expectWorkExpRegExpStr" label="工作经验正则（不区分大小写）">
+            <el-input v-model="formContent.expectWorkExpRegExpStr" type="textarea" :autosize="{ minRows: 2, maxRows: 4 }" />
+                  <div style="width: 100%; margin-top: 8px"><label>规则说明</label><el-input v-model="formContent.regexAnnotations.experienceName.note" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" /></div>
+          </el-form-item>
+        </section>
         <section data-setting="regex" tabindex="-1" class="settings-card">
         <div>
           <div
@@ -182,6 +189,7 @@
                         formContent.expectJobNameRegExpStr?.trim() ?? ''
                     "
                   />
+                  <div style="width: 100%; margin-top: 8px"><label>规则说明</label><el-input v-model="formContent.regexAnnotations.jobName.note" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" /></div>
                 </el-form-item>
                 <div
                   mb0px
@@ -212,6 +220,7 @@
                         formContent.expectJobTypeRegExpStr?.trim() ?? ''
                     "
                   />
+                  <div style="width: 100%; margin-top: 8px"><label>规则说明</label><el-input v-model="formContent.regexAnnotations.positionName.note" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" /></div>
                 </el-form-item>
                 <div
                   mb0px
@@ -240,6 +249,7 @@
                         formContent.expectJobDescRegExpStr?.trim() ?? ''
                     "
                   />
+                  <div style="width: 100%; margin-top: 8px"><label>规则说明</label><el-input v-model="formContent.regexAnnotations.postDescription.note" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" /></div>
                 </el-form-item>
               </div>
             </div>
@@ -302,12 +312,15 @@ const gtagRenderer = (name, params?: object) => {
   })
 }
 
+const emptyAnnotations = () => Object.fromEntries(['experienceName', 'jobName', 'positionName', 'postDescription'].map(key => [key, { note: '', examples: '' }]))
 const formContent = ref({
+  regexAnnotations: emptyAnnotations(),
   expectCompanies: '',
   jobDetailRegExpMatchLogic: JobDetailRegExpMatchLogic.EVERY,
   expectJobNameRegExpStr: '',
   expectJobTypeRegExpStr: '',
   expectJobDescRegExpStr: '',
+  expectWorkExpRegExpStr: '',
   blockCompanyNameRegExpStr: ''
 })
 
@@ -321,6 +334,10 @@ const formRules = computed(() => ({
   expectJobTypeRegExpStr: {
     trigger: 'blur',
     validator: getRuleOfExpectJobTypeRegExpStr({ gtagRenderer, jobDetailRegExpSectionEl })
+  },
+  expectWorkExpRegExpStr: {
+    trigger: 'blur',
+    validator: getRuleOfExpectJobDescRegExpStr({ gtagRenderer, jobDetailRegExpSectionEl })
   },
   expectJobDescRegExpStr: {
     trigger: 'blur',
@@ -376,7 +393,7 @@ async function handleSave() {
 
 async function revealSetting() {
   const focus = String(route.query.focus || '')
-  if (!['companies', 'regex', 'jobName', 'positionName', 'postDescription'].includes(focus)) return
+  if (!['companies', 'regex', 'jobName', 'positionName', 'postDescription', 'experienceName'].includes(focus)) return
   await nextTick()
   const section: HTMLElement | undefined = formRef.value?.$el?.querySelector(`[data-setting="${focus}"]`)
   const input = section?.querySelector<HTMLTextAreaElement>('textarea')
@@ -390,7 +407,9 @@ async function loadSettings() {
   const commonJobConditionConfig = res.config?.['common-job-condition-config.json'] ?? {}
   Object.keys(formContent.value).forEach((key) => {
     if (key in commonJobConditionConfig) {
-      if (key === 'expectCompanies') {
+      if (key === 'regexAnnotations') {
+        formContent.value.regexAnnotations = { ...emptyAnnotations(), ...commonJobConditionConfig[key] }
+      } else if (key === 'expectCompanies') {
         formContent.value[key] = (commonJobConditionConfig[key] ?? []).join(',')
       } else {
         formContent.value[key] = commonJobConditionConfig[key]

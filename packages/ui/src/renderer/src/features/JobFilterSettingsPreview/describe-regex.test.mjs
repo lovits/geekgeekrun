@@ -35,3 +35,32 @@ test('preview follows changed rules rather than retaining personal words or the 
   assert.deepEqual(single.rules[0].items, ['设计', '运营'])
   assert.doesNotMatch(JSON.stringify(single), /两处|销售|管理|后端/)
 })
+
+test('work experience preview explains schedules from the expression without changing other previews', () => {
+  const source = String.raw`在校|应届|\d+\s*天\s*[/／]\s*周\s*[,，、;；]?\s*\d+(?:\s*[-～~至]\s*\d+)?\s*(?:个)?月`
+  const value = describeRegex(source, { workExperience: true })
+  assert.equal(value.complete, true)
+  assert.deepEqual(value.rules[0].items, ['在校', '应届', '每周若干天，持续若干个月；月数也可写为范围，例如“3-6个月”'])
+  assert.doesNotMatch(JSON.stringify(value), /尚未解读|编辑页|免检/)
+  assert.equal(describeRegex(source).complete, false)
+})
+
+test('work experience preview follows edited amounts, choices, grouping and separators', () => {
+  for (const [source, expected] of [
+    [String.raw`^应届$|^5天/周\s*6个月$`, ['应届', '每周5天，持续6个月']],
+    [String.raw`^(?:在读|[3-5]天／周\s*(?:3|6)个月)$`, ['在读', '每周3至5天，持续3或6个月']],
+    [String.raw`应届|\d+天/周\d+个月`, ['应届', '每周若干天，持续若干个月']],
+    ['应届|经验不限', ['应届', '经验不限']]
+  ]) {
+    const value = describeRegex(source, { workExperience: true })
+    assert.equal(value.complete, true, source)
+    assert.deepEqual(value.rules[0].items, expected)
+  }
+  assert.equal(describeRegex('[', { workExperience: true }).complete, false)
+})
+
+test('work experience preview does not mistake non-digit or non-space constraints for a schedule', () => {
+  for (const source of [String.raw`\D+天/周\d+个月`, String.raw`\d+\S+天/周\d+个月`]) {
+    assert.equal(describeRegex(source, { workExperience: true }).complete, false)
+  }
+})

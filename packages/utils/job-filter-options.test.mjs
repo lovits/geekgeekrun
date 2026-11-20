@@ -83,3 +83,17 @@ test('scoped saves preserve other pages and preview uses the latest saved scopes
   assert.deepEqual(payload.filterContext.regex, { jobName: '后端' })
   assert.equal(config.preferences, '后端实习')
 })
+
+test('experience rules apply to every title independently and stay off by default', async () => {
+  const { testJobRegex, jobRegexFailures } = await import('./job-filter-options.mjs')
+  const candidate = { jobName: '后端实习生', experienceName: '3-5年' }
+  const patterns = { experienceName: '在校|经验不限', jobName: '后端' }
+  assert.equal(jobFilterOptions({}).regex.experienceName, false)
+  assert.equal(testJobRegex(candidate, patterns, 2), false)
+  assert.equal(testJobRegex({ ...candidate, experienceName: '在校/应届' }, patterns, 1), true)
+  assert.match(jobRegexFailures(candidate, patterns, 2)[0], /工作经验/)
+  assert.equal(testJobRegex(candidate, jobRegexPatterns(patterns, { regexFilters: { experienceName: false } }), 1), true)
+  const defaults = JSON.parse(await (await import('node:fs/promises')).readFile(new URL('../geek-auto-start-chat-with-boss/default-config-file/common-job-condition-config.json', import.meta.url), 'utf8'))
+  assert.equal(defaults.expectWorkExpRegExpStr, '')
+  assert.equal(Object.hasOwn(defaults, 'workExpTitleBypassRegExpStr'), false)
+})

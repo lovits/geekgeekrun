@@ -58,7 +58,7 @@ const info = computed(() => ({
 }[infoKey.value]))
 async function openSetting(key: string, before = false) {
   const autoFields = ['city', 'salary', 'experience', 'degree', 'industry', 'scale', 'employmentType', 'bossActivity']
-  if (before && ['jobName', 'postDescription', 'positionName'].includes(key)) return router.push({ path: '/main-layout/CommonJobConditionConfig', query: { focus: key } })
+  if (before && ['jobName', 'postDescription', 'positionName', 'experienceName'].includes(key)) return router.push({ path: '/main-layout/CommonJobConditionConfig', query: { focus: key } })
   if (before && autoFields.includes(key)) return router.push({ path: '/main-layout/GeekAutoStartChatWithBoss', query: { focus: key === 'bossActivity' ? 'activity' : key === 'employmentType' ? 'employmentType' : key + 'List' } })
   if (!before && ['jobName', 'postDescription'].includes(key)) return router.push({ path: '/main-layout/AiJobMatch', query: { focus: 'ai-' + key } })
   if (!before && key === 'bossActivity') return router.push({ path: '/main-layout/AiJobMatch', query: { focus: 'input-activity' } })

@@ -120,6 +120,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRecordAutoRefresh } from '@renderer/hooks/useRecordAutoRefresh'
 import { formatJobSalary } from '@geekgeekrun/utils/job-salary.mjs'
 import RecordExport from '@renderer/features/RecordExport/index.vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
@@ -194,7 +195,7 @@ async function getJobLibrary() {
   }
 }
 
-getJobLibrary()
+useRecordAutoRefresh(async () => { if (!isTableLoading.value) await getJobLibrary() })
 
 const tableMaxHeight = ref<number | undefined>(undefined)
 const tableContainerEl = ref<HTMLElement>()

@@ -31,8 +31,9 @@ export async function readDisplayedSimulation() {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     runtimeRecords = []; runtimeStamp = ''
   }
-  if (!state && !runtimeRecords.length && !online) return null
-  return { ...(state || { jobs: [], target: 0 }), running: Boolean(state?.running || online?.running), online, displayJobs: mergeApplicationRecords(state?.jobs?.slice(0, state.target) || [], runtimeRecords) }
+  const pendingLocalRecords = await fs.readdir(path.join(storageFilePath, 'pending-local-rejections')).then(names => names.filter(name => name.endsWith('.json')).length).catch(error => { if (error.code === 'ENOENT') return 0; throw error })
+  if (!state && !runtimeRecords.length && !online && !pendingLocalRecords) return null
+  return { ...(state || { jobs: [], target: 0 }), pendingLocalRecords, running: Boolean(state?.running || online?.running), online, displayJobs: mergeApplicationRecords(state?.jobs?.slice(0, state.target) || [], runtimeRecords) }
 }
 
 async function readSimulation() {

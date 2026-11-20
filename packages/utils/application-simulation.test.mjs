@@ -78,3 +78,40 @@ test('simulation preserves the saved AI scope instead of forcing name and descri
     return { match: true, score: 80, reason: '名称匹配' }
   })
 })
+
+test('enabled description regex rejects before AI; disabling it preserves AI review', async () => {
+  const settings = { ...config, regexFilters: { postDescription: true }, filterContext: { ...config.filterContext, regex: { jobName: '后端', postDescription: 'RAG.*评测' } } }
+  let calls = 0
+  const model = async () => { calls++; return { match: true, score: 80, reason: '匹配' } }
+  const rejected = await simulateApplication(job, settings, {}, model)
+  assert.equal(rejected.status, 'reject')
+  assert.equal(rejected.aiEvaluated, false)
+  assert.equal(calls, 0)
+  const accepted = await simulateApplication({ ...job, description: 'RAG 检索与评测服务开发' }, settings, {}, model)
+  assert.equal(accepted.status, 'recommend')
+  assert.equal(calls, 1)
+  await simulateApplication(job, { ...settings, regexFilters: { postDescription: false } }, {}, model)
+  assert.equal(calls, 2)
+})
+
+test('experience gate checks internship titles too and rejects before AI even in OR mode', async () => {
+  const personalExperiencePattern = String.raw`在校|应届|\d+天/周 \d+个月`
+  const settings = { ...config, regexFilters: { experienceName: true }, filterContext: { ...config.filterContext, employmentType: '实习', combinationLogic: 2, experienceTitleBypass: String.raw`实习|\bintern(?:ship)?\b`, regex: { jobName: '后端', experienceName: personalExperiencePattern } } }
+  let calls = 0
+  const model = async () => { calls++; return { score: 80, match: true, reason: '匹配' } }
+  const titleOnly = await simulateApplication({ ...job, experience: '经验不限' }, settings, {}, model)
+  assert.equal(titleOnly.status, 'reject')
+  assert.equal(calls, 0)
+  await simulateApplication({ ...job, experience: '在校/应届' }, settings, {}, model)
+  assert.equal(calls, 1)
+  const refused = await simulateApplication({ ...job, jobName: '后端开发', jobType: 4, experience: '3-5年' }, settings, {}, model)
+  assert.equal(refused.status, 'reject')
+  assert.match(refused.reason, /工作经验/)
+  assert.equal(calls, 1)
+  const qualified = await simulateApplication({ ...job, jobName: '后端开发', jobType: 4, description: '开发API', experience: '5天/周 3个月' }, settings, {}, model)
+  assert.equal(qualified.status, 'recommend')
+  assert.equal(calls, 2)
+  const fulltime = await simulateApplication({ ...job, jobType: 0 }, settings, {}, model)
+  assert.equal(fulltime.status, 'reject')
+  assert.equal(calls, 2)
+})

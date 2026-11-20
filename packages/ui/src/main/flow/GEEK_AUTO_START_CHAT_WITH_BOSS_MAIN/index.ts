@@ -115,13 +115,15 @@ const runAutoChat = async () => {
   const { initPuppeteer, mainLoop, closeBrowserWindow, autoStartChatEventBus } = await import(
     '@geekgeekrun/geek-auto-start-chat-with-boss/index.mjs'
   )
-  process.on('disconnect', () => {
-    closeBrowserWindow()
+  process.on('disconnect', async () => {
+    await closeBrowserWindow()
+    try { await hooks.flushLocalRecords() } catch (error) { console.error(error) }
     app.exit()
   })
   await initPuppeteer()
 
   const hooks = {
+    flushLocalRecords: async () => {},
     puppeteerLaunched: new SyncHook(['browser']),
     pageGotten: new SyncHook(['page']),
     pageLoaded: new SyncHook(),
@@ -159,6 +161,11 @@ const runAutoChat = async () => {
         return
       }
     } catch (err) {
+      if ((err as any)?.code === 'LOCAL_REJECTION_SAVE_FAILED') {
+        await dialog.showMessageBox({ type: 'error', message: '本地记录保存失败', detail: String(err) })
+        app.exit(1)
+        return
+      }
       if (isSimulation) {
         const message = err instanceof Error ? err.message : String(err)
         await updateSimulation({ running: false, runError: message.includes('LOGIN_STATUS_INVALID') ? 'BOSS登录失效，请先在「编辑登录凭据」中登录后重试' : message.includes('ACCESS_IS_DENIED') ? 'BOSS访问受限，需要在招聘浏览器中完成验证' : `在线模拟已停止：${message}` })

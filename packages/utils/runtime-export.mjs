@@ -33,7 +33,7 @@ export function normalizeExportOptions(options = {}) {
     if (scope === 'simulation') {
       filters.outcome = options.filters?.outcome || 'all'
       filters.score = options.filters?.score || 'all'
-      if (!['all', 'eligible', 'ineligible', 'delivered'].includes(filters.outcome)) throw new Error('沟通状态无效')
+      if (!['all', 'eligible', 'ineligible', 'delivered', 'failed'].includes(filters.outcome)) throw new Error('沟通状态无效')
       if (!['all', 'scored', 'unscored'].includes(filters.score)) throw new Error('AI分数筛选无效')
     }
     if (scope === 'unsuitable' && options.filters?.markReason != null && options.filters.markReason !== '') {
@@ -60,7 +60,7 @@ export function selectExportRecords(database, options, feedback = []) {
   if (scope === 'all') throw new Error('全部历史记录应使用完整导出')
   const definition = exportScopes[scope]
   const source = database[definition.table]
-  const rows = scope === 'simulation' && Array.isArray(source) ? source.map(row => ({ ...row, encryptJobId: row.jobId, companyName: row.company, address: row.city, date: row.recordedAt || row.evaluatedAt || row.chattedAt || row.sourceUpdatedAt || row.snapshot?.date || null, communicationStatus: ({ eligible: '拟沟通', ineligible: '未沟通', delivered: '已沟通' })[applicationOutcome(row)] || '未完成判断' })) : source
+  const rows = scope === 'simulation' && Array.isArray(source) ? source.map(row => ({ ...row, encryptJobId: row.jobId, companyName: row.company, address: row.city, date: row.recordedAt || row.evaluatedAt || row.chattedAt || row.sourceUpdatedAt || row.snapshot?.date || null, communicationStatus: row.status === 'error' ? '评估失败' : ({ eligible: '拟沟通', ineligible: '未沟通', delivered: '已沟通' })[applicationOutcome(row)] || '未完成判断' })) : source
   if (!Array.isArray(rows)) throw new Error('缺少所选类型的数据，无法导出')
   const marks = new Map(feedback.filter(item => ['like', 'dislike'].includes(item.value)).map(item => [String(item.jobId), item.value]))
   const contains = (value, needle) => !needle || String(value || '').toLocaleLowerCase().includes(needle.toLocaleLowerCase())
@@ -70,7 +70,7 @@ export function selectExportRecords(database, options, feedback = []) {
     if (!contains([row.companyName, row.name, row.brandName].filter(Boolean).join(' '), filters.company)) return false
     if (scope === 'companies') return contains(row.industryName, filters.industry)
     if (!contains(row.jobName, filters.job) || !contains(row.address, filters.city)) return false
-    if (scope === 'simulation' && filters.outcome !== 'all' && applicationOutcome(row) !== filters.outcome) return false
+    if (scope === 'simulation' && filters.outcome !== 'all' && (filters.outcome === 'failed' ? row.status !== 'error' : applicationOutcome(row) !== filters.outcome)) return false
     if (scope === 'simulation' && filters.score !== 'all' && (filters.score === 'scored') !== Number.isFinite(row.score)) return false
     if (filters.markReason != null && row.markReason !== filters.markReason) return false
     if (filters.feedback !== 'all' && (marks.get(String(row.encryptJobId)) || 'unmarked') !== filters.feedback) return false

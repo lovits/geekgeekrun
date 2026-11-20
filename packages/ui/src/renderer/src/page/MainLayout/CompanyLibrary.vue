@@ -65,6 +65,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRecordAutoRefresh } from '@renderer/hooks/useRecordAutoRefresh'
 import CompanyJobsPreview from '@renderer/features/CompanyJobsPreview/index.vue'
 import RecordExport from '@renderer/features/RecordExport/index.vue'
 import { ref, computed, onMounted, onActivated, onBeforeUnmount } from 'vue'
@@ -146,7 +147,7 @@ async function getCompanyLibrary() {
   }
 }
 
-getCompanyLibrary()
+useRecordAutoRefresh(async () => { if (!isTableLoading.value) await getCompanyLibrary() })
 refreshMemberships()
 
 const tableMaxHeight = ref<number | undefined>(undefined)

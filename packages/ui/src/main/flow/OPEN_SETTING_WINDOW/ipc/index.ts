@@ -26,7 +26,6 @@ import {
   storageFilePath
 } from '@geekgeekrun/geek-auto-start-chat-with-boss/runtime-file-utils.mjs'
 import { ChildProcess } from 'child_process'
-import * as JSONStream from 'JSONStream'
 import { checkCookieListFormat } from '../../../../common/utils/cookie'
 import { getAnyAvailablePuppeteerExecutable } from '../../DOWNLOAD_DEPENDENCIES/utils/puppeteer-executable/index'
 import { mainWindow } from '../../../window/mainWindow'
@@ -40,8 +39,6 @@ import {
   exportRuntimeData
 } from '../utils/db/index'
 import { PageReq } from '../../../../common/types/pagination'
-import { pipeWriteRegardlessError } from '../../utils/pipe'
-import { WriteStream } from 'node:fs'
 // eslint-disable-next-line vue/prefer-import-from-vue
 import { hasOwn } from '@vue/shared'
 import { createLlmConfigWindow, llmConfigWindow } from '../../../window/llmConfigWindow'
@@ -403,11 +400,12 @@ export default function initIpc() {
   let subProcessOfOpenBossSiteDefer: null | PromiseWithResolvers<ChildProcess> = null
   let subProcessOfOpenBossSite: null | ChildProcess = null
   ipcMain.handle('open-site-with-boss-cookie', async (ev, data) => {
-    const url = data.url
+    const url = new URL(data.url)
+    if (url.protocol !== 'https:' || url.hostname !== 'www.zhipin.com') throw new Error('职位详情链接无效')
     if (
       !subProcessOfOpenBossSiteDefer ||
       !subProcessOfOpenBossSite ||
-      subProcessOfOpenBossSite.killed
+      subProcessOfOpenBossSite.killed || !subProcessOfOpenBossSite.connected
     ) {
       subProcessOfOpenBossSiteDefer = Promise.withResolvers()
       let puppeteerExecutable = await getLastUsedAndAvailableBrowser()
@@ -446,48 +444,39 @@ export default function initIpc() {
           : [`--mode=launchBossSite`],
         {
           env: subProcessEnv,
-          stdio: ['inherit', 'inherit', 'inherit', 'pipe']
+          stdio: ['inherit', 'inherit', 'inherit', 'ipc']
         }
       )
-      subProcessOfOpenBossSite.once('exit', () => {
-        subProcessOfOpenBossSiteDefer = null
+      const child = subProcessOfOpenBossSite
+      const ready = subProcessOfOpenBossSiteDefer
+      const timer = setTimeout(() => { ready.reject(new Error('招聘浏览器启动超时，请重试')); child.kill() }, 30_000)
+      const reset = (error: Error) => {
+        clearTimeout(timer)
+        ready.reject(error)
+        if (subProcessOfOpenBossSite === child) {
+          subProcessOfOpenBossSiteDefer = null
+          subProcessOfOpenBossSite = null
+        }
+      }
+      child.once('error', reset)
+      child.once('exit', () => reset(new Error('招聘浏览器已关闭，请重试')))
+      child.on('message', (message: any) => {
+        if (message?.type === 'SUB_PROCESS_OF_OPEN_BOSS_SITE_READY') {
+          clearTimeout(timer)
+          ready.resolve(child)
+        } else if (message?.type === 'OPEN_BOSS_SITE_ERROR') {
+          void dialog.showMessageBox({ type: 'error', message: '无法打开职位详情', detail: message.error })
+        } else if (message?.type === 'SUB_PROCESS_OF_OPEN_BOSS_SITE_CAN_BE_KILLED') child.kill()
       })
-      subProcessOfOpenBossSite.stdio[3]!.pipe(JSONStream.parse()).on(
-        'data',
-        async function handler(data) {
-          switch (data?.type) {
-            case 'SUB_PROCESS_OF_OPEN_BOSS_SITE_READY': {
-              subProcessOfOpenBossSiteDefer!.resolve(subProcessOfOpenBossSite as ChildProcess)
-              break
-            }
-            case 'SUB_PROCESS_OF_OPEN_BOSS_SITE_CAN_BE_KILLED': {
-              try {
-                subProcessOfOpenBossSite &&
-                  !subProcessOfOpenBossSite.killed &&
-                  subProcessOfOpenBossSite.pid &&
-                  process.kill(subProcessOfOpenBossSite.pid)
-              } catch {
-                //
-              } finally {
-                subProcessOfOpenBossSiteDefer = null
-                subProcessOfOpenBossSite = null
-              }
-              break
-            }
-          }
-        }
-      )
     }
-
-    await subProcessOfOpenBossSiteDefer.promise
-
-    pipeWriteRegardlessError(
-      subProcessOfOpenBossSite!.stdio[3]! as WriteStream,
-      JSON.stringify({
-        type: 'NEW_WINDOW',
-        url: url ?? 'about:blank'
+    try {
+      const child = await subProcessOfOpenBossSiteDefer.promise
+      await new Promise<void>((resolve, reject) => {
+        child.send({ type: 'NEW_WINDOW', url: url.href }, error => error ? reject(error) : resolve())
       })
-    )
+    } catch (error) {
+      await dialog.showMessageBox({ type: 'error', message: '无法打开职位详情', detail: String(error) })
+    }
   })
 
   ipcMain.handle('get-job-history-by-encrypt-id', async (_, encryptJobId) => {

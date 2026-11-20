@@ -37,3 +37,22 @@ test('custom context is passed to the actual CLI invocation', async () => {
     await fs.rm(dir, { recursive: true, force: true })
   }
 })
+
+test('each job uses a fresh ephemeral CLI invocation without previous job history', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'independent-job-test-'))
+  try {
+    const binary = path.join(dir, 'codex'), log = path.join(dir, 'calls.jsonl')
+    await fs.writeFile(binary, `#!/usr/bin/env node\nconst fs=require('fs'),a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(a)+'\\n');fs.writeFileSync(a[a.indexOf('-o')+1],'OK');`, { mode: 0o700 })
+    await codexCompletion([{ role: 'user', content: 'JOB_A_UNIQUE' }], 'fixture', { binary })
+    await codexCompletion([{ role: 'user', content: 'JOB_B_UNIQUE' }], 'fixture', { binary })
+    const [a,b] = (await fs.readFile(log, 'utf8')).trim().split('\n').map(JSON.parse)
+    for (const args of [a,b]) {
+      assert.equal(args[0], 'exec')
+      assert(args.includes('--ephemeral'))
+      assert(!args.includes('resume'))
+    }
+    assert.notEqual(a[a.indexOf('-C')+1], b[b.indexOf('-C')+1])
+    assert(!b.at(-1).includes('JOB_A_UNIQUE'))
+    assert(b.at(-1).includes('JOB_B_UNIQUE'))
+  } finally { await fs.rm(dir, { recursive: true, force: true }) }
+})

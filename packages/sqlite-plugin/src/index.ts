@@ -1,3 +1,6 @@
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { createLocalRejectionQueue } from '../../utils/local-rejection-queue.mjs';
 import "reflect-metadata";
 import { type DataSource } from "typeorm";
 
@@ -86,15 +89,21 @@ export function initDb(dbFilePath) {
 export default class SqlitePlugin {
   initPromise: Promise<DataSource>;
   runRecordId: number;
+  localRejections: ReturnType<typeof createLocalRejectionQueue>;
 
   constructor(dbFilePath) {
     this.initPromise = initDb(dbFilePath);
+    this.localRejections = createLocalRejectionQueue(path.join(path.dirname(dbFilePath), 'pending-local-rejections'), async ({ candidate, user, detail }) => {
+      await saveMarkAsNotSuitRecord(await this.initPromise, candidate, user, detail)
+    });
     this.runRecordId = minimist(process.argv.slice(2))['run-record-id'] ?? 0
   }
 
   userInfo = null
 
   apply(hooks) {
+    hooks.flushLocalRecords = () => this.localRejections.flush();
+    hooks.mainFlowWillLaunch.tapPromise('RecoverLocalRejections', () => this.localRejections.recover());
     hooks.pageGotten.tap(
       'SqlitePlugin',
       (page) => {
@@ -237,6 +246,11 @@ export default class SqlitePlugin {
     });
 
     hooks.jobMarkedAsNotSuit.tapPromise("SqlitePlugin", async (_jobInfo, { markFrom = ChatStartupFrom.AutoFromRecommendList, markReason = undefined, extInfo = undefined, markOp = undefined, jobSource = undefined } = {}) => {
+      const options = { autoStartupChatRecordId: this.runRecordId, markFrom, markReason, extInfo, markOp, jobSource };
+      if (markOp === MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_LOCAL && !extInfo?.websiteMarkError) {
+        options.extInfo = { ...extInfo, localRecordId: randomUUID(), recordedAt: new Date().toISOString() };
+        return this.localRejections.enqueue({ candidate: _jobInfo, user: this.userInfo, detail: options });
+      }
       const ds = await this.initPromise;
       return await saveMarkAsNotSuitRecord(ds, _jobInfo, this.userInfo, {
         autoStartupChatRecordId: this.runRecordId,

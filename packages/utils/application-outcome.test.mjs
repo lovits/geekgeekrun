@@ -57,3 +57,10 @@ test('column sorting groups equal values with newest first and keeps missing val
   assert.deepEqual(filterApplicationRecords(rows, { sortBy: 'score', sortOrder: 'descending', score: 'scored' }).map(x => x.jobId), ['b', 'a-new', 'a-old'])
   assert.deepEqual(filterApplicationRecords(rows).map(x => x.jobId), ['empty', 'a-new', 'b', 'a-old'])
 })
+
+test('evaluation failures have their own filter without becoming unsuitable or delivered', () => {
+  const rows = [{ jobId: 'error', status: 'error', score: null }, { jobId: 'rejected', status: 'reject' }]
+  assert.equal(applicationOutcome(rows[0]), null)
+  assert.deepEqual(filterApplicationRecords(rows, { outcome: 'failed' }).map(x => x.jobId), ['error'])
+  assert.deepEqual(filterApplicationRecords(rows, { outcome: 'ineligible' }).map(x => x.jobId), ['rejected'])
+})

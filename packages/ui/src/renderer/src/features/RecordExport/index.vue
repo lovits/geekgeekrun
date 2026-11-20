@@ -14,7 +14,7 @@
           </div>
           <el-form-item :label="`${exportScopes[selectedScope].dateLabel}范围（北京时间）`"><el-date-picker v-model="filters.dateRange" type="daterange" value-format="YYYY-MM-DD" start-placeholder="开始日期" end-placeholder="结束日期" range-separator="至" style="width: 100%" clearable /></el-form-item>
           <div v-if="selectedScope === 'simulation'" class="export-fields">
-            <el-form-item label="沟通状态"><el-select v-model="filters.outcome" style="width: 100%"><el-option label="全部" value="all" /><el-option label="拟沟通" value="eligible" /><el-option label="未沟通" value="ineligible" /><el-option label="已沟通" value="delivered" /></el-select></el-form-item>
+            <el-form-item label="沟通状态"><el-select v-model="filters.outcome" style="width: 100%"><el-option label="全部" value="all" /><el-option label="拟沟通" value="eligible" /><el-option label="未沟通" value="ineligible" /><el-option label="已沟通" value="delivered" /><el-option label="评估失败" value="failed" /></el-select></el-form-item>
             <el-form-item label="AI分数"><el-select v-model="filters.score" style="width: 100%"><el-option label="全部" value="all" /><el-option label="有AI分数" value="scored" /><el-option label="无AI分数" value="unscored" /></el-select></el-form-item>
           </div>
           <el-form-item v-if="selectedScope === 'unsuitable'" label="不合适原因"><el-select v-model="filters.markReason" style="width: 100%"><el-option label="全部原因" value="" /><el-option v-for="(name, index) in reasonNames" :key="index" :label="name" :value="index" /></el-select></el-form-item>

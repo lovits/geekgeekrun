@@ -15,7 +15,7 @@ export function filterApplicationRecords(jobs, { outcome = 'all', score = 'all',
     return Number.isFinite(date) ? date : -Infinity
   }
   return jobs.filter(job =>
-    (outcome === 'all' || applicationOutcome(job) === outcome) &&
+    (outcome === 'all' || (outcome === 'failed' ? job.status === 'error' : applicationOutcome(job) === outcome)) &&
     (score === 'all' || (score === 'scored' ? Number.isFinite(job.score) : !Number.isFinite(job.score))) &&
     (!keyword || (job.reason || '').toLocaleLowerCase().includes(keyword))
   ).sort((a, b) => {

@@ -1,7 +1,7 @@
 import { RegExpParser } from '@eslint-community/regexpp'
 
 // This explains saved rules only. The original expression remains the execution rule.
-export function describeRegex(source = '') {
+export function describeRegex(source = '', { workExperience = false } = {}) {
   if (!source.trim()) return { rules: [], empty: true, complete: true }
   let complete = true
   const anyText = node => node?.type === 'Quantifier' && node.min === 0 && node.max === Infinity && node.element.raw === '[\\s\\S]'
@@ -32,8 +32,50 @@ export function describeRegex(source = '') {
     }
     return null
   }
+  const spacing = node => node.type === 'CharacterSet' && node.kind === 'space' && !node.negate || node.type === 'Quantifier' && node.element.type === 'CharacterSet' && node.element.kind === 'space' && !node.element.negate
+  const characters = node => node?.type === 'Character' ? [String.fromCodePoint(node.value)] : node?.type === 'CharacterClass' && !node.negate && node.elements.every(item => item.type === 'Character') ? node.elements.map(item => String.fromCodePoint(item.value)) : []
+  const onlyCharacters = (node, allowed) => { const values = characters(node); return values.length > 0 && values.every(value => allowed.includes(value)) }
+  function amount(nodes, start) {
+    let end = start
+    while (nodes[end]?.type === 'Character' && /[0-9]/.test(String.fromCodePoint(nodes[end].value))) end++
+    if (end > start) return { text: nodes.slice(start, end).map(node => String.fromCodePoint(node.value)).join(''), end }
+    const node = nodes[start]
+    if (!node) return null
+    if (node.type === 'Quantifier' && node.min === 1 && node.max === Infinity && node.element.type === 'CharacterSet' && node.element.kind === 'digit' && !node.element.negate) return { text: '若干', end: start + 1 }
+    if (node.type === 'CharacterClass' && !node.negate && node.elements.length && node.elements.every(item => item.type === 'Character' && item.value >= 48 && item.value <= 57 || item.type === 'CharacterClassRange' && item.min.value >= 48 && item.max.value <= 57)) {
+      return { text: node.elements.map(item => item.type === 'Character' ? String.fromCodePoint(item.value) : `${String.fromCodePoint(item.min.value)}至${String.fromCodePoint(item.max.value)}`).join('或'), end: start + 1 }
+    }
+    if (['Group', 'CapturingGroup'].includes(node.type)) {
+      const values = words(node)
+      if (values?.length && values.every(value => /^\d+$/.test(value))) return { text: unique(values).join('或'), end: start + 1 }
+    }
+    return null
+  }
+  function schedule(elements) {
+    const nodes = elements.filter(node => !spacing(node) && !(node.type === 'Quantifier' && node.min === 0 && node.max === 1 && onlyCharacters(node.element, ',，、;；')))
+    const days = amount(nodes, 0)
+    if (!days || !onlyCharacters(nodes[days.end], '天') || !onlyCharacters(nodes[days.end + 1], '/／') || !onlyCharacters(nodes[days.end + 2], '周')) return null
+    const months = amount(nodes, days.end + 3)
+    if (!months) return null
+    let end = months.end, rangeSeparator = ''
+    const range = nodes[end]
+    if (range?.type === 'Quantifier' && range.min === 0 && range.max === 1 && ['Group', 'CapturingGroup'].includes(range.element.type) && range.element.alternatives.length === 1) {
+      const parts = range.element.alternatives[0].elements.filter(node => !spacing(node))
+      const other = amount(parts, 1)
+      if (onlyCharacters(parts[0], '-～~至') && other?.end === parts.length && other.text === '若干' && months.text === '若干') { rangeSeparator = characters(parts[0])[0]; end++ }
+    }
+    const optionalUnit = nodes[end] && words(nodes[end])
+    const hasUnit = optionalUnit?.length && optionalUnit.every(value => value === '' || value === '个') && optionalUnit.includes('个')
+    if (hasUnit) end++
+    if (!onlyCharacters(nodes[end], '月') || end + 1 !== nodes.length) return null
+    return `每周${days.text}天，持续${months.text}个月` + (rangeSeparator ? `；月数也可写为范围，例如“3${rangeSeparator}6${hasUnit ? '个' : ''}月”` : '')
+  }
   function phrases(alternative) {
-    const nodes = alternative.elements
+    const nodes = workExperience ? alternative.elements.filter(node => !(node.type === 'Assertion' && ['start', 'end'].includes(node.kind))) : alternative.elements
+    if (workExperience) {
+      const description = schedule(nodes)
+      if (description) return [description]
+    }
     const years = nodes?.[0] && words(nodes[0])
     if (years?.length && years.every(value => /^\d{2,4}$/.test(value)) && /毕业|届/.test(alternative.raw)) {
       return unique(years.map(year => (year.length === 2 ? '20' + year : year) + '届或当年毕业'))
@@ -42,7 +84,7 @@ export function describeRegex(source = '') {
       const before = words(nodes[0]), after = words(nodes[2])
       if (before && after) return [`先出现${unique(before).join('、')}中的一项，再出现${unique(after).join('、')}中的一项；两者间隔不超过20字，不能跨句号、分号或换行。`]
     }
-    const values = words(alternative)
+    const values = words(workExperience ? { ...alternative, elements: nodes } : alternative)
     if (values) return unique(values)
     complete = false
     return ['这项包含尚未解读的自定义条件，请到编辑页核对。']

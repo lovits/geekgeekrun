@@ -42,10 +42,11 @@ test('website marking records confirmed success and retains local evidence on fa
   const source = await fs.readFile(new URL('../geek-auto-start-chat-with-boss/index.mjs', import.meta.url), 'utf8')
   const start = source.indexOf('async function markOnlineSimulationRejected(')
   const end = source.indexOf('async function markJobAsNotSuitInRecommendPage', start)
-  for (const scenario of ['success', 'missing-button', 'failed', 'changed-job']) {
+  for (const scenario of ['success', 'missing-button', 'failed', 'changed-job', 'local']) {
     const events = [], records = []
     const scope = vm.createContext({
       MarkAsNotSuitOp: { MARK_AS_NOT_SUIT_ON_LOCAL: 2, MARK_AS_NOT_SUIT_ON_BOSS: 1 },
+      jobNotActiveStrategy: scenario === 'local' ? 2 : 1, jobNotMatchStrategy: 1, expectCityNotMatchStrategy: 1, expectWorkExpNotMatchStrategy: 1, expectSalaryNotMatchStrategy: 1, blockCompanyNameRegMatchStrategy: 1,
       page: { evaluate: async () => scenario === 'changed-job' ? 'other' : 'one' },
       waitForSageTimeOrJustContinue: async () => events.push('wait'),
       markJobAsNotSuitInRecommendPage: async () => { events.push('website'); if(scenario === 'failed') throw new Error('请求失败'); return scenario === 'missing-button' ? {} : { chosenReasonInUi: { code: 41, text: '职位不合适' } } }
@@ -55,6 +56,7 @@ test('website marking records confirmed success and retains local evidence on fa
     assert.equal(records[0].markOp, scenario === 'success' ? 1 : 2)
     assert.equal(records[0].extInfo.reason, '不是实习'); assert.equal(records[0].extInfo.aiScore, 20)
     if(scenario === 'success') { assert.deepEqual(events, ['wait', 'website', 'save']); assert.equal(records[0].extInfo.chosenReasonInUi.code, 41) }
+    else if (scenario === 'local') assert.deepEqual(events, ['save'])
     else assert.ok(records[0].extInfo.websiteMarkError)
     if(scenario === 'changed-job') assert.deepEqual(events, ['wait', 'save'])
   }

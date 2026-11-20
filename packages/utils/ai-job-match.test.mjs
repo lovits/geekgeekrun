@@ -25,3 +25,18 @@ test('model rejection, malformed output and unavailable service cannot approve a
   }
   assert.equal((await matchJobWithResume(config, candidate, model, async () => { throw Error('network') })).match, false)
 })
+
+test('uses each request current input choices rather than retaining prior materials', async () => {
+  const { matchingPayload } = await import('./ai-job-match.mjs')
+  const first = matchingPayload({ preferences: '偏好A', resumeText: '简历A', customPrompt: '当前匹配方法', inputSources: { resume: false, preferences: true }, aiFilters: { jobName: false, postDescription: true } }, candidate)
+  assert.equal(first.preferences, '偏好A')
+  assert.equal(first.resume, undefined)
+  assert.deepEqual(first.selectedFields, ['postDescription'])
+  const second = matchingPayload({ preferences: '偏好B', resumeText: '简历B', customPrompt: '修改后的方法', inputSources: { resume: true, preferences: false }, aiFilters: { jobName: true, postDescription: false } }, candidate)
+  assert.equal(second.preferences, undefined)
+  assert.equal(second.resume, '简历B')
+  assert.equal(second.userPrompt, '修改后的方法')
+  assert.deepEqual(second.selectedFields, ['jobName'])
+  assert.equal(second.job.postDescription, undefined)
+  assert.equal(second.job.jobName, candidate.jobInfo.jobName)
+})

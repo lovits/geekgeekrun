@@ -48,6 +48,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRecordAutoRefresh } from '@renderer/hooks/useRecordAutoRefresh'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ElTable, ElTableColumn, ElButton, ElPagination } from 'element-plus'
 import { type VBossLibrary } from '@geekgeekrun/sqlite-plugin/src/entity/VBossLibrary'
@@ -98,7 +99,7 @@ async function getBossLibrary() {
   }
 }
 
-getBossLibrary()
+useRecordAutoRefresh(async () => { if (!isTableLoading.value) await getBossLibrary() })
 
 const tableMaxHeight = ref<number | undefined>(undefined)
 const tableContainerEl = ref<HTMLElement>()

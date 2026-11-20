@@ -110,5 +110,5 @@ jobs:
           prerelease: false
           allowUpdates: true
           artifacts: release-assets/*
-          bodyFile: docs/releases/0.20.0.md
+          bodyFile: docs/releases/${{ github.ref_name }}.md
           token: ${{ secrets.GITHUB_TOKEN }}

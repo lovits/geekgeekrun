@@ -276,10 +276,13 @@ export async function saveMarkAsNotSuitRecord(
 ) {
   const { jobInfo } = _jobInfo;
 
+  const recordRepository = ds.getRepository(MarkAsNotSuitLog);
+  if (extInfo?.localRecordId && await recordRepository.createQueryBuilder('record')
+    .where("CASE WHEN json_valid(record.extInfo) THEN json_extract(record.extInfo, '$.localRecordId') END = :id", { id: extInfo.localRecordId }).getCount()) return;
   //#region mark-as-not-suit-log
   const markAsNotSuitLog = new MarkAsNotSuitLog()
   const markAsNotSuitLogPayload: Partial<MarkAsNotSuitLog> = {
-    date: new Date(),
+    date: extInfo?.recordedAt && Number.isFinite(Date.parse(extInfo.recordedAt)) ? new Date(extInfo.recordedAt) : new Date(),
     encryptCurrentUserId: encryptUserId,
     encryptJobId: jobInfo.encryptId,
     autoStartupChatRecordId,

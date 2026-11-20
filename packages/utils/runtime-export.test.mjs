@@ -55,3 +55,12 @@ test('simulation export filters by communication outcome and whether AI scored',
   assert.throws(()=>normalizeExportOptions({scope:'simulation', filters:{outcome:'bad'}}))
   assert.throws(()=>normalizeExportOptions({scope:'simulation', filters:{score:'bad'}}))
 })
+
+test('failed evaluations export separately from rejected jobs and keep an empty score', () => {
+  const simulation = [{ jobId: 'failed', status: 'error', score: null, reason: '模型调用失败' }, { jobId: 'rejected', status: 'reject', score: 30 }]
+  const selected = selectExportRecords({ simulation }, { scope: 'simulation', filters: { outcome: 'failed', score: 'unscored' } })
+  assert.deepEqual(selected.map(row => row.jobId), ['failed'])
+  assert.equal(selected[0].communicationStatus, '评估失败')
+  assert.equal(selected[0].score, null)
+  assert.match(recordsToCsv(selected, 'simulation'), /评估失败/)
+})

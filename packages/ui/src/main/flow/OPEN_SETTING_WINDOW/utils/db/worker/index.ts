@@ -34,6 +34,23 @@ dbInitPromise.then(
   }
 )
 
+async function withRecordedSalary<T extends { encryptJobId: string }>(records: T[]): Promise<(T & { salaryDesc?: string })[]> {
+  if (!records.length) return []
+  const ids = [...new Set(records.map(record => record.encryptJobId))]
+  const history = await dataSource!.getRepository(JobInfoChangeLog).createQueryBuilder('history')
+    .where('history.encryptJobId IN (:...ids)', { ids })
+    .orderBy('history.updateTime', 'DESC').addOrderBy('history.id', 'DESC').getMany()
+  const salaries = new Map<string, string>()
+  for (const entry of history) {
+    if (salaries.has(entry.encryptJobId)) continue
+    try {
+      const salary = JSON.parse(entry.dataAsJson).salaryDesc
+      if (typeof salary === 'string' && salary.trim()) salaries.set(entry.encryptJobId, salary.trim())
+    } catch {}
+  }
+  return records.map(record => ({ ...record, salaryDesc: salaries.get(record.encryptJobId) }))
+}
+
 const payloadHandler = {
   async getSimulationJobs() {
     return dataSource!.query(`SELECT j.*,
@@ -66,7 +83,7 @@ const payloadHandler = {
       pageSize = 10
     }
 
-    const userRepository = dataSource!.getRepository(VChatStartupLog)!
+    const userRepository = dataSource!.getRepository<VChatStartupLog>(VChatStartupLog)!
     const [data, totalItemCount] = await measureExecutionTime(
       userRepository.findAndCount({
         skip: (pageNo - 1) * pageSize,
@@ -77,7 +94,7 @@ const payloadHandler = {
       })
     )
     return {
-      data,
+      data: await withRecordedSalary(data),
       pageNo,
       totalItemCount
     }
@@ -91,7 +108,7 @@ const payloadHandler = {
     if (!pageSize) {
       pageSize = 10
     }
-    const recordRepository = dataSource!.getRepository(VMarkAsNotSuitLog)!
+    const recordRepository = dataSource!.getRepository<VMarkAsNotSuitLog>(VMarkAsNotSuitLog)!
     const [data, totalItemCount] = await measureExecutionTime(
       recordRepository.findAndCount({
         skip: (pageNo - 1) * pageSize,
@@ -102,7 +119,7 @@ const payloadHandler = {
       })
     )
     return {
-      data,
+      data: await withRecordedSalary(data),
       pageNo,
       totalItemCount
     }

@@ -7,3 +7,9 @@ test('salary rendering preserves daily/monthly text and never prints missing num
   for (const job of [{}, { salaryLow: null, salaryHigh: null }, { salaryLow: 10 }]) assert.equal(formatJobSalary(job), '未记录')
   assert.equal(formatJobSalary({ salaryLow: 10, salaryHigh: 20, salaryMonth: 13 }), '10-20k* 13薪')
 })
+
+test('salary text preserves annual packages, negotiable salaries and monthly pay without conversion', () => {
+  for (const salaryDesc of ['150-200元/天', '20-35K·16薪', '30-50万/年', '年包40万', '面议']) {
+    assert.equal(formatJobSalary({ salaryDesc, salaryLow: 10, salaryHigh: 20 }), salaryDesc)
+  }
+})

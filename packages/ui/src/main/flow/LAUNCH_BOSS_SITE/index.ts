@@ -26,10 +26,7 @@ import {
 } from '@geekgeekrun/sqlite-plugin/dist/enums'
 import cheerio from 'cheerio'
 
-import fs from 'node:fs'
 import { Target } from 'puppeteer'
-import { pipeWriteRegardlessError } from '../utils/pipe'
-import * as JSONStream from 'JSONStream'
 import { ChatStartupFrom } from '@geekgeekrun/sqlite-plugin/dist/entity/ChatStartupLog'
 import gtag from '../../utils/gtag'
 import attachListenerForKillSelfOnParentExited from '../../utils/attachListenerForKillSelfOnParentExited'
@@ -387,34 +384,18 @@ export async function launchBossSite() {
   const localStoragePageUrl = `https://www.zhipin.com/desktop/`
   await setDomainLocalStorage(browser, localStoragePageUrl, bossLocalStorage)
 
-  //#region pipe
-  let pipeForWrite: null | fs.WriteStream = null
-  let pipeForRead: null | fs.ReadStream = null
-  try {
-    pipeForWrite = fs.createWriteStream('', { fd: 3 })
-  } catch {
-    console.warn('pipeForWrite is not available')
-  }
-  try {
-    pipeForRead = fs.createReadStream('', { fd: 3 })
-  } catch {
-    console.warn('pipeForRead is not available')
-  }
-  pipeForRead?.pipe(JSONStream.parse())?.on('data', async function handler(data) {
-    if (data.type !== 'NEW_WINDOW') {
-      return
+  process.on('message', async (data: any) => {
+    if (data?.type !== 'NEW_WINDOW') return
+    try {
+      const detailPage = await browser.newPage()
+      await detailPage.bringToFront()
+      await detailPage.goto(data.url, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+      await detailPage.bringToFront()
+      process.send?.({ type: 'OPEN_BOSS_SITE_SUCCESS', url: detailPage.url() })
+    } catch (error) {
+      process.send?.({ type: 'OPEN_BOSS_SITE_ERROR', error: String(error) })
     }
-    const page = await browser.newPage()
-    await page.goto(data.url)
   })
-
-  pipeWriteRegardlessError(
-    pipeForWrite,
-    JSON.stringify({
-      type: 'SUB_PROCESS_OF_OPEN_BOSS_SITE_READY'
-    })
-  )
-  //#endregion
   gtag('launch_boss_site_ready')
   browser.on('targetcreated', (target) => {
     attachRequestsListener(target)
@@ -426,18 +407,14 @@ export async function launchBossSite() {
     }
     const cp = browser.process()
     cp.kill()
-    pipeWriteRegardlessError(
-      pipeForWrite,
-      JSON.stringify({
-        type: 'SUB_PROCESS_OF_OPEN_BOSS_SITE_CAN_BE_KILLED'
-      })
-    )
+    process.send?.({ type: 'SUB_PROCESS_OF_OPEN_BOSS_SITE_CAN_BE_KILLED' })
     process.exit(0)
   })
 
   const tempPage = await browser.newPage()
   await page.close()
   page = tempPage
+  process.send?.({ type: 'SUB_PROCESS_OF_OPEN_BOSS_SITE_READY' })
 }
 
 attachListenerForKillSelfOnParentExited()

@@ -23,7 +23,7 @@ import { ElMessage } from 'element-plus'
 import { useJobFilterSettings } from '@renderer/store/job-filter-settings'
 const props = withDefaults(defineProps<{ scope?: 'all' | 'regex' | 'ai'; compact?: boolean }>(), { scope: 'all', compact: false })
 const settings = useJobFilterSettings()
-const regexItems = [{ key: 'jobName', label: '正则筛选岗位名称' }, { key: 'positionName', label: '正则筛选职位类型' }, { key: 'postDescription', label: '正则筛选岗位描述' }, { key: 'companies', label: '启用期望投递公司名单' }, { key: 'blockedCompanies', label: '启用不期望投递公司正则' }]
+const regexItems = [{ key: 'experienceName', label: '正则筛选工作经验' }, { key: 'jobName', label: '正则筛选岗位名称' }, { key: 'positionName', label: '正则筛选职位类型' }, { key: 'postDescription', label: '正则筛选岗位描述' }, { key: 'companies', label: '启用期望投递公司名单' }, { key: 'blockedCompanies', label: '启用不期望投递公司正则' }]
 async function refresh() { try { await settings.refresh() } catch (error) { ElMessage.error(String(error)) } }
 onMounted(refresh)
 onActivated(refresh)

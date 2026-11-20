@@ -24,6 +24,7 @@ export function jobMatchFlow(payload = {}, context = {}) {
   const beforeBoss = [
     ['jobName', '岗位名称', regex.jobName], ['postDescription', '完整岗位描述', regex.postDescription],
     ['positionName', '职位分类', regex.positionName],
+    ['experienceName', '工作经验', regex.experienceName],
     ['companies', '期望公司', regex.companies], ['blockedCompanies', '屏蔽公司', regex.blockedCompanies],
     ['city', '工作城市', chosen('cityList') || context.cities?.length],
     ['salary', '薪资', chosen('salaryList') || context.salary?.low || context.salary?.high],
@@ -42,7 +43,7 @@ export function groupFlowInputs(items, stage) {
     ],
     before: [
       ['pageFilters', '职位筛选条件', ['city', 'salary', 'experience', 'degree', 'industry', 'scale', 'employmentType'], 'pageFilters'],
-      ['regexRules', '公共职位正则筛选', ['jobName', 'postDescription', 'positionName'], 'regexRules'],
+      ['regexRules', '公共职位正则筛选', ['jobName', 'postDescription', 'positionName', 'experienceName'], 'regexRules'],
       ['companyRules', '公司名单与屏蔽规则', ['companies', 'blockedCompanies'], 'companyRules']
     ],
     after: [

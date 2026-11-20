@@ -21,7 +21,8 @@ export function buildJobMatchContext(boss = {}, common = {}, targets = [], catal
     workExperience: boss.expectWorkExpList || [],
     companies: use.expectCompanies ? common.expectCompanies || [] : targets,
     blockedCompaniesRegex: (use.blockCompanyNameRegExpStr ? common : boss).blockCompanyNameRegExpStr || '',
-    regex: { jobName: detail.expectJobNameRegExpStr || '', positionName: detail.expectJobTypeRegExpStr || '', postDescription: detail.expectJobDescRegExpStr || '' },
+    regex: { experienceName: common.expectWorkExpRegExpStr || '', jobName: detail.expectJobNameRegExpStr || '', positionName: detail.expectJobTypeRegExpStr || '', postDescription: detail.expectJobDescRegExpStr || '' },
+    regexAnnotations: { ...detail.regexAnnotations, experienceName: common.regexAnnotations?.experienceName },
     combinationLogic: detail.jobDetailRegExpMatchLogic,
     interpretation: '以上是用户保存的完整筛选意图。正则用于表达偏好；已勾选项同时在程序中执行硬筛。未勾选项只能作为软偏好背景，不可凭关闭的规则一票否决。解析否定前瞻等语义，不把排除词当成期望词。公司名单和组合条件不是岗位资格证明。空城市列表代表全国、不限。',
   }

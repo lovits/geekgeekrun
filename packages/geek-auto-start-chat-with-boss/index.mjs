@@ -247,6 +247,7 @@ if (filterOptions.enabled && !hasRequiredMatchInputs(jobAiMatchConfig)) throw ne
 ;({ jobName: expectJobNameRegExpStr, positionName: expectJobTypeRegExpStr, postDescription: expectJobDescRegExpStr } = jobRegexPatterns({ jobName: expectJobNameRegExpStr, positionName: expectJobTypeRegExpStr, postDescription: expectJobDescRegExpStr }, jobAiMatchConfig))
 // No active regex means no restriction, including in the "any rule" mode.
 if (![expectJobNameRegExpStr, expectJobTypeRegExpStr, expectJobDescRegExpStr].some(pattern => pattern?.trim())) jobDetailRegExpMatchLogic = JobDetailRegExpMatchLogic.EVERY
+const expectWorkExpRegExpStr = filterOptions.regex.experienceName ? commonJobConditionConfig.expectWorkExpRegExpStr || '' : ''
 const jobNameFilterForList = jobDetailRegExpMatchLogic === JobDetailRegExpMatchLogic.EVERY && expectJobNameRegExpStr?.trim()
   ? new RegExp(expectJobNameRegExpStr, 'im')
   : null
@@ -335,6 +336,11 @@ const blockJobNotSuit = new Set()
 async function markOnlineSimulationRejected(hooks, targetJobData, detail) {
   let markOp = MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_LOCAL
   const extInfo = { ...detail.extInfo, simulation: true }
+  const strategyByReason = { 1: jobNotActiveStrategy, 3: jobNotMatchStrategy, 4: expectCityNotMatchStrategy, 5: expectWorkExpNotMatchStrategy, 6: expectSalaryNotMatchStrategy, 7: blockCompanyNameRegMatchStrategy }
+  if (strategyByReason[detail.markReason] !== MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_BOSS) {
+    await hooks.jobMarkedAsNotSuit?.promise(targetJobData, { ...detail, markOp, extInfo })
+    return
+  }
   try {
     await waitForSageTimeOrJustContinue({ tag: 'beforeJobNotSuitMarked', hooks })
     const currentId = await page.evaluate(() => document.querySelector('.job-detail-box')?.__vue__?.data?.jobInfo?.encryptId)
@@ -490,7 +496,7 @@ async function markJobAsNotSuitInRecommendPage (reasonCode) {
 
 export function testIfJobTitleOrDescriptionSuit (jobInfo, matchLogic) {
   if (expectEmploymentType === 1902 && internshipIssue(jobInfo)) return false
-  return testJobRegex(jobInfo, { jobName: expectJobNameRegExpStr, positionName: expectJobTypeRegExpStr, postDescription: expectJobDescRegExpStr }, matchLogic)
+  return testJobRegex(jobInfo, { jobName: expectJobNameRegExpStr, positionName: expectJobTypeRegExpStr, postDescription: expectJobDescRegExpStr, experienceName: expectWorkExpRegExpStr }, matchLogic)
 }
 
 async function setFilterCondition (selectedFilters) {
@@ -1345,7 +1351,7 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
                       }
                     },
                     async jobDetail() {
-                      const reason = [expectEmploymentType === 1902 && internshipIssue(targetJobData.jobInfo), ...jobRegexFailures(targetJobData.jobInfo, { jobName: expectJobNameRegExpStr, positionName: expectJobTypeRegExpStr, postDescription: expectJobDescRegExpStr }, jobDetailRegExpMatchLogic)].filter(Boolean).join('；')
+                      const reason = [expectEmploymentType === 1902 && internshipIssue(targetJobData.jobInfo), ...jobRegexFailures(targetJobData.jobInfo, { jobName: expectJobNameRegExpStr, positionName: expectJobTypeRegExpStr, postDescription: expectJobDescRegExpStr, experienceName: expectWorkExpRegExpStr }, jobDetailRegExpMatchLogic)].filter(Boolean).join('；')
                       blockJobNotSuit.add(targetJobData.jobInfo.encryptId)
                       if (jobNotMatchStrategy === MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_LOCAL || !await page.$('.job-detail-box .job-detail-operate .not-suitable')) {
                         try {
@@ -1475,7 +1481,7 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
                       active: bossActivityIssue(targetJobData.bossInfo.activeTimeDesc, markAsNotActiveSelectedTimeRange),
                       city: `工作地“${selectedJobData.cityName}”不符合设置`,
                       workExp: `工作经验“${selectedJobData.jobExperience}”不符合设置`,
-                      jobDetail: [expectEmploymentType === 1902 && internshipIssue(targetJobData.jobInfo), ...jobRegexFailures(targetJobData.jobInfo, { jobName: expectJobNameRegExpStr, positionName: expectJobTypeRegExpStr, postDescription: expectJobDescRegExpStr }, jobDetailRegExpMatchLogic)].filter(Boolean).join('；'),
+                      jobDetail: [expectEmploymentType === 1902 && internshipIssue(targetJobData.jobInfo), ...jobRegexFailures(targetJobData.jobInfo, { jobName: expectJobNameRegExpStr, positionName: expectJobTypeRegExpStr, postDescription: expectJobDescRegExpStr, experienceName: expectWorkExpRegExpStr }, jobDetailRegExpMatchLogic)].filter(Boolean).join('；'),
                       salary: `薪资“${selectedJobData.salaryDesc}”不符合设置`
                     }
                     await hooks.jobScreened?.promise(targetJobData, { reason: Object.keys(notSuitReasonIdToStrategyMap).map(key => reasons[key]).filter(Boolean).join('；') })
@@ -1558,6 +1564,7 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
 
           let liveCandidate = await page.evaluate(() => ({
             jobInfo: document.querySelector('.job-detail-box')?.__vue__?.data?.jobInfo,
+            bossInfo: { activeTimeDesc: document.querySelector('.job-detail-box')?.__vue__?.data?.bossInfo?.activeTimeDesc },
             selectedJob: document.querySelector('.page-jobs-main')?.__vue__?.currentJob
           }))
           if (filterOptions.enabled && matchInputSources(readConfigFile('job-ai-match.json')).feedback && hasConfiguredLlm(readConfigFile('llm.json')?.find(it => it.enabled)) && (await readJobFeedback()).some(item => item.jobId === liveCandidate.jobInfo?.encryptId && item.value === 'dislike')) {
@@ -1581,11 +1588,12 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
             if (targetJobData.jobInfo.encryptId === liveCandidate.jobInfo?.encryptId) await hooks.jobMatchEvaluated?.promise(targetJobData, decision)
             const current = await page.evaluate(() => ({
               jobInfo: document.querySelector('.job-detail-box')?.__vue__?.data?.jobInfo,
+              bossInfo: { activeTimeDesc: document.querySelector('.job-detail-box')?.__vue__?.data?.bossInfo?.activeTimeDesc },
               selectedJob: document.querySelector('.page-jobs-main')?.__vue__?.currentJob
             }))
             if (!decision.match || snapshot !== JSON.stringify(current)) {
               if (decision.match) await hooks.jobScreened?.promise(targetJobData, { status: 'verify', reason: '评估后页面岗位信息发生变化，未确认开聊', afterAi: true })
-              if (!decision.match && (!simulation || Number.isInteger(decision.score))) {
+              if (!decision.match && Number.isInteger(decision.score)) {
                 const detail = { markFrom: ChatStartupFrom.AutoFromRecommendList, markReason: MarkAsNotSuitReason.JOB_NOT_SUIT, markOp: MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_LOCAL, extInfo: { reason: decision.reason, aiScore: decision.score, gaps: decision.gaps }, jobSource: JobSource[computedSourceList[currentSourceIndex]?.type] }
                 if (simulation && snapshot === JSON.stringify(current)) await markOnlineSimulationRejected(hooks, targetJobData, detail)
                 else await hooks.jobMarkedAsNotSuit.promise(targetJobData, detail)
@@ -1605,6 +1613,7 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
           }
           liveCandidate = await page.evaluate(() => ({
             jobInfo: document.querySelector('.job-detail-box')?.__vue__?.data?.jobInfo,
+            bossInfo: { activeTimeDesc: document.querySelector('.job-detail-box')?.__vue__?.data?.bossInfo?.activeTimeDesc },
             selectedJob: document.querySelector('.page-jobs-main')?.__vue__?.currentJob
           }))
           if ((filterOptions.enabled && matchInputSources(readConfigFile('job-ai-match.json')).feedback && hasConfiguredLlm(readConfigFile('llm.json')?.find(it => it.enabled)) && (await readJobFeedback()).some(item => item.jobId === liveCandidate.jobInfo?.encryptId && item.value === 'dislike')) || (filterOptions.enabled && aiReviewSnapshot !== JSON.stringify(liveCandidate)) || (expectEmploymentType === 1902 && internshipIssue(liveCandidate.jobInfo)) || bossActivityIssue(targetJobData.bossInfo.activeTimeDesc, markAsNotActiveSelectedTimeRange) || !canStartChat({
@@ -1616,7 +1625,8 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
             patterns: {
               jobName: expectJobNameRegExpStr,
               positionName: expectJobTypeRegExpStr,
-              postDescription: expectJobDescRegExpStr
+              postDescription: expectJobDescRegExpStr,
+              experienceName: expectWorkExpRegExpStr
             }
           })) {
             await hooks.jobScreened?.promise(targetJobData, { status: 'verify', reason: '未通过开聊前的最终核验，未确认开聊', afterAi: filterOptions.enabled })
@@ -1861,7 +1871,8 @@ export async function mainLoop (hooks, { filterCheckOnly = false, simulationLimi
     }
     throw err
   } finally {
-    if (simulation || filterCheckOnly) await closeBrowserWindow()
+    try { await hooks.flushLocalRecords?.() }
+    finally { if (simulation || filterCheckOnly) await closeBrowserWindow() }
   }
 }
 

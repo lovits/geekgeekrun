@@ -9,10 +9,15 @@
     </section>
     <template v-if="includes('companyRules')">
       <section class="rule-field"><div class="rule-heading"><h4>期望公司 <span class="helper">{{ context.companies?.length || 0 }} 项</span></h4><el-tag v-if="switches?.regex" :type="switches.regex.companies ? 'success' : 'info'" effect="plain" size="small">{{ switches.regex.companies ? '启用' : '停用' }}</el-tag></div><ul v-if="context.companies?.length" class="word-tags"><li v-for="(company, index) in context.companies" :key="index">{{ company }}</li></ul><p v-else>未设置具体名单，不限制期望公司。</p></section>
-      <section class="rule-field"><div class="rule-heading"><h4>屏蔽公司</h4><el-tag v-if="switches?.regex" :type="switches.regex.blockedCompanies ? 'success' : 'info'" effect="plain" size="small">{{ switches.regex.blockedCompanies ? '启用' : '停用' }}</el-tag></div><p v-if="blocked.empty">未设置具体屏蔽条件。</p><div v-for="(rule, index) in blocked.rules" :key="index" class="rule-detail"><p class="rule-label">公司名称包含下面任一项时排除</p><ul class="word-tags"><li v-for="(item, itemIndex) in rule.items" :key="itemIndex">{{ item }}</li></ul></div></section>
+      <section class="rule-field"><div class="rule-heading"><h4>屏蔽公司</h4><el-tag v-if="switches?.regex" :type="switches.regex.blockedCompanies ? 'success' : 'info'" effect="plain" size="small">{{ switches.regex.blockedCompanies ? '启用' : '停用' }}</el-tag></div>
+        <ul v-if="blocked.length" class="word-tags"><li v-for="(company, index) in blocked" :key="index">{{ company.label }}</li></ul><p v-else>未设置具体屏蔽条件。</p>
+      </section>
     </template>
     <template v-if="includes('regexRules')">
-      <section v-for="field in ruleFields" :key="field.key" class="rule-field"><div class="rule-heading"><h4>{{ field.label }}</h4><el-tag v-if="switches?.regex" :type="switches.regex[field.key] ? 'success' : 'info'" effect="plain" size="small">{{ switches.regex[field.key] ? '启用' : '停用' }}</el-tag></div><div v-for="(rule, index) in field.description.rules" :key="index" class="rule-detail"><p class="rule-label">{{ rule.label }}</p><p v-if="rule.note" class="helper">{{ rule.note }}</p><ul class="word-tags"><li v-for="(item, itemIndex) in rule.items" :key="itemIndex">{{ item }}</li></ul></div><p v-if="!field.description.complete" class="helper">这项自定义规则仍需在编辑页核对；预览不会改变它。</p></section>
+      <section v-for="field in ruleFields" :key="field.key" class="rule-field"><div class="rule-heading"><h4>{{ field.label }}</h4><el-tag v-if="switches?.regex" :type="switches.regex[field.key] ? 'success' : 'info'" effect="plain" size="small">{{ switches.regex[field.key] ? '启用' : '停用' }}</el-tag></div>
+        <p v-if="field.annotation.note" class="rule-meaning">{{ field.annotation.note }}</p>
+        <details><summary>查看正则</summary><p class="regex-source">{{ context.regex[field.key] }}</p></details>
+      </section>
     </template>
     <div v-if="editableLinks" class="preview-actions"><el-button size="small" @click="$router.push('/main-layout/GeekAutoStartChatWithBoss')">编辑自动开聊条件</el-button><el-button size="small" @click="openRegex">编辑公共职位筛选</el-button></div>
   </div>
@@ -21,7 +26,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 const router = useRouter()
-import { describeRegex } from './describe-regex.mjs'
+import { companyEntries } from '../CompanyTags/company-list.mjs'
 import cityData from '@geekgeekrun/geek-auto-start-chat-with-boss/cityGroup.mjs'
 import catalog from '@geekgeekrun/geek-auto-start-chat-with-boss/internal-config/job-filter-conditions-20241002.json'
 const props = withDefaults(defineProps<{ context: Record<string, any>; sections?: string[]; editableLinks?: boolean; switches?: Record<string, any> }>(), { editableLinks: true })
@@ -30,8 +35,12 @@ const filterFields = [{ key: 'cityList', label: '城市' }, { key: 'salaryList',
 const isFixed = computed(() => String(props.context.traversalMode).startsWith('固定'))
 const traversalLabel = computed(() => isFixed.value ? '固定组合逐组查找' : '自由组合：多选一起，单选分组')
 const combinationRows = computed(() => isFixed.value ? props.context.staticFilterGroups?.length ? props.context.staticFilterGroups : [{}] : [props.context.pageFilters || {}])
-const blocked = computed(() => describeRegex(props.context.blockedCompaniesRegex || ''))
-const ruleFields = computed(() => [{ key: 'jobName', label: '岗位名称' }, { key: 'positionName', label: '职位类型关键词' }, { key: 'postDescription', label: '岗位描述' }].filter(field => props.context.regex?.[field.key]?.trim()).map(field => ({ ...field, description: describeRegex(props.context.regex[field.key]) })))
+const fields = [{ key: 'experienceName', label: '工作经验' }, { key: 'jobName', label: '岗位名称' }, { key: 'positionName', label: '职位类型关键词' }, { key: 'postDescription', label: '岗位描述' }]
+const blocked = computed(() => companyEntries(props.context.blockedCompaniesRegex || '', true))
+const ruleFields = computed(() => fields.filter(field => props.context.regex?.[field.key]?.trim()).map(field => {
+  const annotation = props.context.regexAnnotations?.[field.key] || {}
+  return { ...field, annotation }
+}))
 const cities = (cityData?.zpData?.cityGroup || []).flatMap(group => group.cityList || [])
 const display = (value: any) => Array.isArray(value) ? value.length ? value.join('、') : '不限' : value == null || value === '' ? '不限' : String(value)
 const displayFilter = (key: string, value: any) => {
@@ -45,6 +54,8 @@ const salaryLabel = computed(() => `${props.context.salary?.low || '不限'} —
 function openRegex() { router.push('/main-layout/CommonJobConditionConfig') }
 </script>
 <style scoped>
+.rule-meaning { white-space: pre-line; margin-bottom: 10px; }
+.regex-source { font-family: ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: 10px; }
 .settings-preview { min-width: 0; color: var(--el-text-color-primary); }
 h4 { font-size: 14px; font-weight: 600; margin: 0; } p { margin: 0; font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
 .summary-line, .extra-conditions { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 10px; margin: 0 0 14px; font-size: 13px; }.summary-line dt, .extra-conditions dt { color: var(--el-text-color-secondary); }.summary-line dd, .extra-conditions dd { margin: 0 20px 0 0; }
