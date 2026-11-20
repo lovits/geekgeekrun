@@ -14,3 +14,11 @@ test('checks newer stable releases and selects the current platform and architec
   assert.equal(selectReleaseUpdate([], '0.17.4', 'darwin', 'arm64'), null)
   assert.throws(()=>selectReleaseUpdate({},'0.17.4','win32','x64'))
 })
+
+test('cached update only remains visible when newer than installed version', async () => {
+  const { isNewerRelease } = await import('./release-update.mjs')
+  assert.equal(isNewerRelease({ releaseVersion: '0.20.2' }, '0.20.2'), false)
+  assert.equal(isNewerRelease({ releaseVersion: '0.20.1' }, '0.20.2'), false)
+  assert.equal(isNewerRelease({ releaseVersion: '0.20.3' }, '0.20.2'), true)
+  assert.equal(isNewerRelease({ releaseVersion: 'invalid' }, '0.20.2'), false)
+})

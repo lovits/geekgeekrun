@@ -10,34 +10,6 @@
         <RunDataRecordPart />
       </div>
       <div class="pt-16px pb-16px flex-0 font-size-12px">
-        <div v-if="updateStore.availableNewRelease" mb16px>
-          <div
-            :style="{
-              display: 'flex',
-              alignItems: 'center'
-            }"
-          >
-            最新版本: {{ updateStore.availableNewRelease.releaseVersion }}
-            <img
-              h12px
-              ml10px
-              :style="{
-                filter: `saturate(1.5) brightness(1.5)`,
-                transform: `translateY(-10px)`
-              }"
-              src="./resources/new.gif"
-            />
-          </div>
-          <div class="update-button-area flex flex-items-center mt-8px">
-            <el-button type="text" size="small" @click="handleDownloadNewReleaseClick"
-              >从GitHub下载</el-button
-            >
-            |
-            <el-button type="text" size="small" @click="handleViewNewReleaseClick"
-              >了解更新内容</el-button
-            >
-          </div>
-        </div>
         <div>
           <div>当前版本: {{ buildInfo.version }}({{ buildInfo.buildVersion }})</div>
           <div class="feedback-button-area flex flex-items-center mt-8px">
@@ -86,15 +58,7 @@ const handleGotoProjectPageClick = () => {
   electron.ipcRenderer.send('open-external-link', projectUrl)
 }
 
-const updateStore = useUpdateStore()
-function handleDownloadNewReleaseClick() {
-  gtagRenderer('click_download_release_form_nav')
-  electron.ipcRenderer.send('open-external-link', updateStore.availableNewRelease!.assetUrl)
-}
-function handleViewNewReleaseClick() {
-  gtagRenderer('click_view_release_form_nav')
-  electron.ipcRenderer.send('open-external-link', updateStore.availableNewRelease!.releasePageUrl)
-}
+useUpdateStore()
 
 const taskManagerStore = useTaskManagerStore()
 void taskManagerStore

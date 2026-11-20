@@ -1,3 +1,5 @@
+import { isNewerRelease } from '@geekgeekrun/utils/release-update.mjs'
+import buildInfo from '../../../common/build-info.json'
 import { updateCheckDue } from '@geekgeekrun/utils/update-schedule.mjs'
 import type { RunningTask } from '../../../common/types/runtime'
 import { defineStore } from 'pinia'
@@ -8,7 +10,11 @@ import { throttle } from 'lodash'
 export const useUpdateStore = defineStore('update', () => {
   let cached: any = {}
   try { cached = JSON.parse(localStorage.getItem('update-check-cache') || '{}') } catch {}
-  const availableNewRelease = ref<NewReleaseInfo | null>(cached.release || null)
+  const availableNewRelease = ref<NewReleaseInfo | null>(isNewerRelease(cached.release, buildInfo.version) ? cached.release : null)
+  if (cached.release && !availableNewRelease.value) {
+    cached = { ...cached, release: null, status: cached.status === 'available' ? 'latest' : cached.status }
+    localStorage.setItem('update-check-cache', JSON.stringify(cached))
+  }
   const autoCheck = ref(localStorage.getItem('auto-check-updates') !== 'false')
   const checking = ref(false), updateError = ref(''), lastCheckedAt = ref(cached.checkedAt || '')
   const checkStatus = ref(cached.status || 'idle'), downloading = ref(false), downloadError = ref(''), downloaded = ref<any>(null)

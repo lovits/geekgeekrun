@@ -1,5 +1,11 @@
 import semver from 'semver'
 
+export function isNewerRelease(release, currentVersion) {
+  const version = semver.valid(release?.releaseVersion)
+  const current = semver.valid(currentVersion)
+  return Boolean(version && current && semver.gt(version, current))
+}
+
 export function selectReleaseUpdate(releases, currentVersion, platform, arch) {
   if (!Array.isArray(releases)) throw new Error('GitHub 未返回有效版本列表')
   const extension = { win32: '.exe', darwin: '.dmg', linux: '.deb' }[platform]
