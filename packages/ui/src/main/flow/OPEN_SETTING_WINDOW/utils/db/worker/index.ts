@@ -53,6 +53,9 @@ async function withRecordedSalary<T extends { encryptJobId: string }>(records: T
 }
 
 const payloadHandler = {
+  async getSimulationCompanyFacts() {
+    return dataSource!.query('SELECT j.encryptJobId AS jobId, c.scaleLow, c.scaleHigh, c.industryName FROM job_info j LEFT JOIN company_info c ON c.encryptCompanyId = j.encryptCompanyId')
+  },
   async getSimulationJobs() {
     return dataSource!.query(`SELECT j.*,
       (SELECT dataAsJson FROM job_info_change_log h WHERE h.encryptJobId=j.encryptJobId ORDER BY updateTime DESC,id DESC LIMIT 1) rawJobInfo,

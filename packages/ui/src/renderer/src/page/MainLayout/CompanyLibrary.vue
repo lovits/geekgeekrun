@@ -21,9 +21,6 @@
            min-width="130" show-overflow-tooltip />
           <ElTableColumn prop="industryName" label="所在行业"  min-width="140" show-overflow-tooltip />
           <ElTableColumn prop="stageName" label="融资情况"  min-width="130" show-overflow-tooltip />
-          <ElTableColumn label="职位" width="90" fixed="right" align="center">
-            <template #default="{ row }"><ElButton link type="primary" size="small" :aria-label="'查看职位：' + row.name" @click="tableRef?.toggleRowExpansion(row)">查看职位</ElButton></template>
-          </ElTableColumn>
           <ElTableColumn v-for="list in companyLists" :key="list.key" :label="list.label" width="110" fixed="right" align="center" header-align="center">
             <template #default="{ row }">
               <el-tooltip :content="buttonLabel(row, list.key)" placement="top">
@@ -48,10 +45,10 @@
           >刷新</el-button
         >
         <el-popover placement="top-start" trigger="click" :width="320">
-          <template #reference><ElButton size="small" :type="scaleFilter || industryFilter ? 'primary' : 'default'" plain>筛选</ElButton></template>
+          <template #reference><ElButton size="small" :type="scaleFilter.length || industryFilter.length ? 'primary' : 'default'" plain>筛选</ElButton></template>
           <el-form label-position="top">
-            <el-form-item label="公司规模"><el-select v-model="scaleFilter" :disabled="isTableLoading" @change="applyFilters"><el-option label="不筛选" value="" /><el-option v-for="option in filterOptions.scales" :key="JSON.stringify([option.scaleLow, option.scaleHigh])" :label="option.scaleLow == null && option.scaleHigh == null ? '未记录' : formatCompanyScale(option.scaleLow, option.scaleHigh)" :value="JSON.stringify([option.scaleLow, option.scaleHigh])" /></el-select></el-form-item>
-            <el-form-item label="所在行业"><el-select v-model="industryFilter" filterable :disabled="isTableLoading" @change="applyFilters"><el-option label="不筛选" value="" /><el-option v-for="industry in filterOptions.industries" :key="industry" :label="industry" :value="industry" /></el-select></el-form-item>
+            <el-form-item label="公司规模"><el-select :teleported="false" v-model="scaleFilter" multiple clearable collapse-tags collapse-tags-tooltip placeholder="不筛选" @change="applyFilters"><el-option label="不筛选" value="" /><el-option v-for="option in filterOptions.scales" :key="JSON.stringify([option.scaleLow, option.scaleHigh])" :label="option.scaleLow == null && option.scaleHigh == null ? '未记录' : formatCompanyScale(option.scaleLow, option.scaleHigh)" :value="JSON.stringify([option.scaleLow, option.scaleHigh])" /></el-select></el-form-item>
+            <el-form-item label="所在行业"><el-select :teleported="false" v-model="industryFilter" multiple clearable collapse-tags collapse-tags-tooltip placeholder="不筛选" filterable @change="applyFilters"><el-option label="不筛选" value="" /><el-option v-for="industry in filterOptions.industries" :key="industry" :label="industry" :value="industry" /></el-select></el-form-item>
           </el-form>
           <ElButton size="small" :disabled="isTableLoading" @click="resetFilters">重置</ElButton>
         </el-popover>
@@ -111,10 +108,10 @@ async function toggleCompany(row: VCompanyLibrary, list: CompanyList) {
 }
 
 const tableData = ref<VCompanyLibrary[]>([])
-const scaleFilter = ref(''), industryFilter = ref('')
+const scaleFilter = ref<string[]>([]), industryFilter = ref<string[]>([])
 const filterOptions = ref<{ scales: { scaleLow: number | null; scaleHigh: number | null }[]; industries: string[] }>({ scales: [], industries: [] })
-function applyFilters() { pagination.value.pageNo = 1; getCompanyLibrary() }
-function resetFilters() { scaleFilter.value = ''; industryFilter.value = ''; applyFilters() }
+function applyFilters() { if (scaleFilter.value.includes('')) scaleFilter.value = []; if (industryFilter.value.includes('')) industryFilter.value = []; pagination.value.pageNo = 1; getCompanyLibrary() }
+function resetFilters() { scaleFilter.value = []; industryFilter.value = []; applyFilters() }
 const pageSizeList = ref<number[]>([100, 200, 300, 400])
 const pagination = ref<Omit<PageReq & PagedRes<unknown>, 'data'>>({
   pageNo: 1,
@@ -124,7 +121,9 @@ const pagination = ref<Omit<PageReq & PagedRes<unknown>, 'data'>>({
 
 const tableRef = ref<InstanceType<typeof ElTable>>()
 const isTableLoading = ref(false)
+let requestId = 0
 async function getCompanyLibrary() {
+  const currentRequest = ++requestId
   try {
     gtagRenderer('company_library_request_sent', {
       page_no: pagination.value.pageNo,
@@ -134,9 +133,10 @@ async function getCompanyLibrary() {
     const { data: res } = (await electron.ipcRenderer.invoke('get-company-library', {
       pageNo: pagination.value.pageNo,
       pageSize: pagination.value.pageSize,
-      scale: scaleFilter.value,
-      industry: industryFilter.value
+      scale: [...scaleFilter.value],
+      industry: [...industryFilter.value]
     })) as { data: PagedRes<VCompanyLibrary> & { filterOptions: typeof filterOptions.value } }
+    if (currentRequest !== requestId) return
     tableData.value = res.data
     filterOptions.value = res.filterOptions
     pagination.value = {
@@ -149,6 +149,7 @@ async function getCompanyLibrary() {
       page_size: pagination.value.pageSize,
     })
   } catch (err) {
+    if (currentRequest !== requestId) return
     gtagRenderer('company_library_request_error', {
       err,
       page_no: pagination.value.pageNo,
@@ -157,8 +158,7 @@ async function getCompanyLibrary() {
     console.log(err)
     tableData.value = []
   } finally {
-    tableRef.value?.setScrollTop(0)
-    isTableLoading.value = false
+    if (currentRequest === requestId) { tableRef.value?.setScrollTop(0); isTableLoading.value = false }
   }
 }
 

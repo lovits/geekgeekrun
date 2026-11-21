@@ -8,13 +8,15 @@ export function applicationOutcome(job) {
   return null
 }
 
-export function filterApplicationRecords(jobs, { outcome = 'all', score = 'all', reason = '', sortBy = '', sortOrder = '', date = '' } = {}) {
+export function filterApplicationRecords(jobs, { outcome = 'all', score = 'all', reason = '', sortBy = '', sortOrder = '', date = '', scales = [], industries = [] } = {}) {
   const keyword = reason.trim().toLocaleLowerCase()
   const timestamp = job => {
     const date = Date.parse(job.recordedAt || job.evaluatedAt || job.chattedAt || job.sourceUpdatedAt || job.snapshot?.date || '')
     return Number.isFinite(date) ? date : -Infinity
   }
   return jobs.filter(job =>
+    (!scales.length || scales.includes(JSON.stringify([job.scaleLow ?? null, job.scaleHigh ?? null]))) &&
+    (!industries.length || industries.includes(job.industryName || '')) &&
     (!date || applicationRecordDay(job) === date) &&
     (outcome === 'all' || (outcome === 'failed' ? job.status === 'error' : applicationOutcome(job) === outcome)) &&
     (score === 'all' || (score === 'scored' ? Number.isFinite(job.score) : !Number.isFinite(job.score))) &&

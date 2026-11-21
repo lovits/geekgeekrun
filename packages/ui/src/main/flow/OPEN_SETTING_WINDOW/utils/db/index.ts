@@ -80,6 +80,8 @@ export const getBossLibrary = async ({ pageNo, pageSize }: Partial<PageReq> = {}
   return res
 }
 
+export const getSimulationCompanyFacts = async () => createWorkerPromise({ type: 'getSimulationCompanyFacts' })
+
 export const getCompanyLibrary = async ({ pageNo, pageSize, scale, industry }: Partial<CompanyLibraryReq> = {}) => {
   const res = await createWorkerPromise({
     type: 'getCompanyLibrary',

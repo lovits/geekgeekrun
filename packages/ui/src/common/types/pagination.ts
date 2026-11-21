@@ -15,6 +15,6 @@ export interface JobLibraryReq extends PageReq {
 }
 
 export interface CompanyLibraryReq extends PageReq {
-  scale?: string
-  industry?: string
+  scale?: string | string[]
+  industry?: string | string[]
 }

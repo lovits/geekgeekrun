@@ -89,3 +89,18 @@ test('date filtering uses the local calendar day and composes with existing filt
     else process.env.TZ = previousTimezone
   }
 })
+
+test('simulation combines multi-company filters with score, status and dates', () => {
+  const rows = [
+    { jobId: 'small-ai', scaleLow: 500, scaleHigh: 999, industryName: '人工智能', score: 85, status: 'recommend', recordedAt: '2026-11-20T01:00:00Z' },
+    { jobId: 'large-web', scaleLow: 1000, scaleHigh: 9999, industryName: '互联网', score: null, status: 'reject', recordedAt: '2026-11-20T02:00:00Z' },
+    { jobId: 'hardware', scaleLow: 500, scaleHigh: 999, industryName: '智能硬件', score: 70, status: 'recommend' },
+    { jobId: 'unknown', status: 'error' }
+  ]
+  const options = { scales: ['[500,999]', '[1000,9999]'], industries: ['人工智能', '互联网'] }
+  assert.deepEqual(new Set(filterApplicationRecords(rows, options).map(row => row.jobId)), new Set(['small-ai', 'large-web']))
+  assert.deepEqual(filterApplicationRecords(rows, { ...options, score: 'scored', outcome: 'eligible', date: '2026-11-20' }).map(row => row.jobId), ['small-ai'])
+  assert.deepEqual(filterApplicationRecords(rows, { ...options, score: 'unscored' }).map(row => row.jobId), ['large-web'])
+  assert.equal(filterApplicationRecords(rows, { scales: [], industries: [] }).length, 4)
+  assert.deepEqual(filterApplicationRecords(rows, { scales: ['[null,null]'] }).map(row => row.jobId), ['unknown'])
+})

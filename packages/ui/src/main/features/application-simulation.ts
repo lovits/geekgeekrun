@@ -7,7 +7,7 @@ import { simulationCandidates, runApplicationSimulation, nextSimulationTarget } 
 import { jobFilterOptions } from '@geekgeekrun/utils/job-filter-options.mjs'
 import { buildJobMatchContext } from '@geekgeekrun/utils/job-match-context.mjs'
 import { readJobFeedback } from '@geekgeekrun/utils/job-feedback.mjs'
-import { getSimulationJobs } from '../flow/OPEN_SETTING_WINDOW/utils/db'
+import { getSimulationJobs, getSimulationCompanyFacts } from '../flow/OPEN_SETTING_WINDOW/utils/db'
 import filterCatalog from '@geekgeekrun/geek-auto-start-chat-with-boss/internal-config/job-filter-conditions-20241002.json'
 import { applicationRunFile, readApplicationRunRecords, mergeApplicationRecords } from '@geekgeekrun/utils/application-run-records.mjs'
 import { applicationRecordDay } from '@geekgeekrun/utils/application-outcome.mjs'
@@ -42,7 +42,10 @@ export async function readDisplayedSimulation() {
   const localJobs = state?.jobs?.slice(0, state.target) || []
   const recordedDays = new Set(dailyRuntimeRecords.map(job => `${applicationRecordDay(job)}:${job.jobId}`))
   const dailyJobs = [...dailyRuntimeRecords, ...localJobs.filter(job => !recordedDays.has(`${applicationRecordDay(job)}:${job.jobId}`))]
-  return { ...(state || { jobs: [], target: 0 }), pendingLocalRecords, running: Boolean(state?.running || online?.running), online, displayJobs: mergeApplicationRecords(localJobs, runtimeRecords), dailyJobs }
+  const { data: companyFacts } = await getSimulationCompanyFacts()
+  const factsByJob = new Map<string, Record<string, any>>(companyFacts.map(row => [row.jobId, row]))
+  const withCompanyFacts = (jobs: any[]) => jobs.map(job => ({ ...factsByJob.get(job.jobId), ...job }))
+  return { ...(state || { jobs: [], target: 0 }), pendingLocalRecords, running: Boolean(state?.running || online?.running), online, displayJobs: withCompanyFacts(mergeApplicationRecords(localJobs, runtimeRecords)), dailyJobs: withCompanyFacts(dailyJobs) }
 }
 
 async function readSimulation() {
