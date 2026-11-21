@@ -1,9 +1,5 @@
 <template>
   <div class="page-wrap runtime-record-page flex flex-col of-hidden">
-    <div class="company-filter">
-      <el-input v-model="companyFilter" placeholder="筛选公司" aria-label="筛选公司" size="small" clearable @keyup.enter="applyCompanyFilter" @clear="applyCompanyFilter" />
-      <ElButton size="small" @click="applyCompanyFilter">筛选</ElButton>
-    </div>
     <div v-loading="isTableLoading" class="flex-1 of-hidden">
       <div ref="tableContainerEl" class="h-100% of-hidden">
         <ElTable
@@ -132,7 +128,6 @@ import JobInfoSnapshot from '../../features/JobInfoSnapshot/index.vue'
 import JobInfoHistoryList from '../../features/JobInfoHistoryList/index.vue'
 import { gtagRenderer } from '@renderer/utils/gtag'
 
-const companyFilter = ref('')
 const companyOrder = ref<'ascending' | 'descending' | null>(null)
 function handleCompanySort({ order }: { order: 'ascending' | 'descending' | null }) {
   companyOrder.value = order
@@ -140,10 +135,6 @@ function handleCompanySort({ order }: { order: 'ascending' | 'descending' | null
   getJobLibrary()
 }
 let requestId = 0
-function applyCompanyFilter() {
-  pagination.value.pageNo = 1
-  getJobLibrary()
-}
 const tableData = ref<VChatStartupLog[]>([])
 const pageSizeList = ref<number[]>([100, 200, 300, 400])
 const pagination = ref<Omit<PageReq & PagedRes<unknown>, 'data'>>({
@@ -164,7 +155,6 @@ async function getJobLibrary() {
     const { data: res } = (await electron.ipcRenderer.invoke('get-job-library', {
       pageNo: pagination.value.pageNo,
       pageSize: pagination.value.pageSize,
-      companyName: companyFilter.value,
       companyOrder: companyOrder.value
     })) as { data: PagedRes<VChatStartupLog> }
     if (currentRequest !== requestId) return
@@ -298,8 +288,6 @@ async function handleViewJobHistoryButtonClick(record: VChatStartupLog) {
 </script>
 
 <style scoped lang="scss">
-.company-filter { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
-.company-filter .el-input { width: 220px; }
 
 .page-wrap {
   margin: 0 auto;

@@ -35,7 +35,7 @@
       </div>
     </div>
     <div class="flex flex-0 flex-justify-between pt10px pb10px">
-      <div class="w100px">
+      <div class="company-footer-actions">
         <el-button
           :loading="isTableLoading"
           size="small"
@@ -47,6 +47,14 @@
           "
           >刷新</el-button
         >
+        <el-popover placement="top-start" trigger="click" :width="320">
+          <template #reference><ElButton size="small" :type="scaleFilter || industryFilter ? 'primary' : 'default'" plain>筛选</ElButton></template>
+          <el-form label-position="top">
+            <el-form-item label="公司规模"><el-select v-model="scaleFilter" :disabled="isTableLoading" @change="applyFilters"><el-option label="不筛选" value="" /><el-option v-for="option in filterOptions.scales" :key="JSON.stringify([option.scaleLow, option.scaleHigh])" :label="option.scaleLow == null && option.scaleHigh == null ? '未记录' : formatCompanyScale(option.scaleLow, option.scaleHigh)" :value="JSON.stringify([option.scaleLow, option.scaleHigh])" /></el-select></el-form-item>
+            <el-form-item label="所在行业"><el-select v-model="industryFilter" filterable :disabled="isTableLoading" @change="applyFilters"><el-option label="不筛选" value="" /><el-option v-for="industry in filterOptions.industries" :key="industry" :label="industry" :value="industry" /></el-select></el-form-item>
+          </el-form>
+          <ElButton size="small" :disabled="isTableLoading" @click="resetFilters">重置</ElButton>
+        </el-popover>
       </div>
       <ElPagination
         v-model:current-page="pagination.pageNo"
@@ -59,7 +67,7 @@
         @size-change="getCompanyLibrary"
         @current-change="getCompanyLibrary"
       />
-      <div class="w100px"><RecordExport scope="companies" /></div>
+      <div class="w110px"><RecordExport scope="companies" /></div>
     </div>
   </div>
 </template>
@@ -103,6 +111,10 @@ async function toggleCompany(row: VCompanyLibrary, list: CompanyList) {
 }
 
 const tableData = ref<VCompanyLibrary[]>([])
+const scaleFilter = ref(''), industryFilter = ref('')
+const filterOptions = ref<{ scales: { scaleLow: number | null; scaleHigh: number | null }[]; industries: string[] }>({ scales: [], industries: [] })
+function applyFilters() { pagination.value.pageNo = 1; getCompanyLibrary() }
+function resetFilters() { scaleFilter.value = ''; industryFilter.value = ''; applyFilters() }
 const pageSizeList = ref<number[]>([100, 200, 300, 400])
 const pagination = ref<Omit<PageReq & PagedRes<unknown>, 'data'>>({
   pageNo: 1,
@@ -121,9 +133,12 @@ async function getCompanyLibrary() {
     isTableLoading.value = true
     const { data: res } = (await electron.ipcRenderer.invoke('get-company-library', {
       pageNo: pagination.value.pageNo,
-      pageSize: pagination.value.pageSize
-    })) as { data: PagedRes<VCompanyLibrary> }
+      pageSize: pagination.value.pageSize,
+      scale: scaleFilter.value,
+      industry: industryFilter.value
+    })) as { data: PagedRes<VCompanyLibrary> & { filterOptions: typeof filterOptions.value } }
     tableData.value = res.data
+    filterOptions.value = res.filterOptions
     pagination.value = {
       totalItemCount: res.totalItemCount,
       pageNo: res.pageNo,
@@ -165,6 +180,8 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+.company-footer-actions { display: flex; align-items: center; gap: 8px; width: 110px; flex-shrink: 0; }
+.company-footer-actions :deep(.el-button + .el-button) { margin-left: 0; }
 .page-wrap {
   margin: 0 auto;
   max-width: 1000px;

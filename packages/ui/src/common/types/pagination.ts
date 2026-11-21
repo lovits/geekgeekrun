@@ -13,3 +13,8 @@ export interface JobLibraryReq extends PageReq {
   companyId?: string
   companyOrder?: 'ascending' | 'descending' | null
 }
+
+export interface CompanyLibraryReq extends PageReq {
+  scale?: string
+  industry?: string
+}

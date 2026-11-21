@@ -248,6 +248,7 @@ const attachRequestsListener = async (target: Target) => {
       page.url().startsWith('https://www.zhipin.com/web/geek/jobs') &&
       response.url().startsWith('https://www.zhipin.com/wapi/zpgeek/friend/add.json')
     ) {
+      if ((await response.json().catch(() => null))?.code !== 0) return
       const request = response.request().url()
 
       const url = new URL(request)
@@ -283,7 +284,7 @@ const attachRequestsListener = async (target: Target) => {
           jobSource: JobSource[jobSource]
         }
       )
-      if ((await response.json().catch(() => null))?.code === 0) await recordApplicationEvent('chatted', currentJobData)
+      await recordApplicationEvent('chatted', currentJobData)
     } else if (
       page.url().startsWith('https://www.zhipin.com/web/geek/chat') &&
       response.url().startsWith('https://www.zhipin.com/wapi/zpchat/geek/historyMsg')

@@ -7,8 +7,9 @@
       <el-button size="small" type="primary" plain :loading="starting" :disabled="state?.running || !Number.isSafeInteger(batchSize) || batchSize < 1" @click="start">开始模拟</el-button>
       <el-button size="small" :loading="loading" @click="refresh">刷新</el-button>
       <el-button v-if="state?.online?.running" size="small" :loading="starting" @click="stopOnline">停止</el-button>
-      <span v-if="state" class="run-summary">评估失败 {{ jobs.filter(job => job.status === 'error').length }} · 拟沟通 {{ count('eligible') }} · 未沟通 {{ count('ineligible') }} · 已沟通 {{ count('delivered') }}<template v-if="state.running"> · 处理中 {{ simulationMode === 'online' ? state.online?.processed || 0 : completed }}/{{ simulationMode === 'online' ? state.online?.target : batchJobs.length }}</template><template v-else-if="simulationMode === 'online' && state.online"> · 本轮 {{ state.online.processed }}/{{ state.online.target }}</template></span>
+      <span v-if="state" class="run-summary">总数 {{ dateJobs.length }} · 评估失败 {{ dateJobs.filter(job => job.status === 'error').length }} · 拟沟通 {{ count('eligible') }} · 未沟通 {{ count('ineligible') }} · 已沟通 {{ count('delivered') }}</span>
       <div class="list-filters">
+        <el-date-picker v-model="recordDate" type="date" value-format="YYYY-MM-DD" placeholder="全部日期" size="small" clearable :shortcuts="[{ text: '今日', value: () => new Date() }]" aria-label="按日期筛选模拟开聊记录" style="width: 145px" />
         <el-select v-model="scoreFilter" size="small" aria-label="AI分数筛选" style="width: 120px"><el-option label="AI分数：全部" value="all" /><el-option label="有AI分数" value="scored" /><el-option label="无AI分数" value="unscored" /></el-select>
         <el-select v-model="filter" size="small" aria-label="沟通状态筛选" style="width: 110px"><el-option label="全部状态" value="all" /><el-option v-for="(label, key) in outcomeLabels" :key="key" :label="label" :value="key" /></el-select>
         <el-button size="small" @click="resetFilters">重置</el-button>
@@ -55,32 +56,34 @@
 import { useRecordAutoRefresh } from '@renderer/hooks/useRecordAutoRefresh'
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { applicationOutcome, filterApplicationRecords } from '@geekgeekrun/utils/application-outcome.mjs'
+import { applicationOutcome, filterApplicationRecords, applicationRecordDay } from '@geekgeekrun/utils/application-outcome.mjs'
 import { transformUtcDateToLocalDate } from '@geekgeekrun/utils/date.mjs'
 const state = ref<any>(null), loading = ref(false), starting = ref(false)
 const batchSize = ref(10), filter = ref('all'), details = ref(false), selectedId = ref('')
 const simulationMode = ref('online')
+const recordDate = ref('')
 const scoreFilter = ref('all'), sortBy = ref(''), sortOrder = ref('')
 const tableRef = ref<any>(null)
 const pageNo = ref(1), pageSize = ref(100)
 const runError = computed(() => simulationMode.value === 'online' ? state.value?.online?.runError : state.value?.runError)
-const selected = computed(() => jobs.value.find(job => job.jobId === selectedId.value))
+const selected = computed(() => dateJobs.value.find(job => job.jobId === selectedId.value))
 const outcomeLabels: Record<string, string> = { eligible: '拟沟通', ineligible: '未沟通', delivered: '已沟通', failed: '评估失败' }
 const outcomeLabel = job => job.status === 'error' ? '评估失败' : outcomeLabels[applicationOutcome(job)] || '未完成判断'
 const batchJobs = computed<any[]>(() => state.value?.jobs?.slice(0, state.value.target) || [])
 const jobs = computed<any[]>(() => state.value?.displayJobs || batchJobs.value)
-const filteredJobs = computed(() => filterApplicationRecords(jobs.value, { outcome: filter.value, score: scoreFilter.value, sortBy: sortBy.value, sortOrder: sortOrder.value }))
+const dailySource = computed<any[]>(() => state.value?.dailyJobs || jobs.value)
+const dateJobs = computed(() => recordDate.value ? dailySource.value.filter(job => applicationRecordDay(job) === recordDate.value) : jobs.value)
+const filteredJobs = computed(() => filterApplicationRecords(dateJobs.value, { outcome: filter.value, score: scoreFilter.value, sortBy: sortBy.value, sortOrder: sortOrder.value }))
 const visibleJobs = computed(() => filteredJobs.value.slice((pageNo.value - 1) * pageSize.value, pageNo.value * pageSize.value))
-watch([filter, scoreFilter, sortBy, sortOrder, pageSize], () => { pageNo.value = 1; tableRef.value?.setScrollTop(0) })
+watch([filter, scoreFilter, sortBy, sortOrder, pageSize, recordDate], () => { pageNo.value = 1; tableRef.value?.setScrollTop(0) })
 watch(() => filteredJobs.value.length, total => { pageNo.value = Math.min(pageNo.value, Math.max(1, Math.ceil(total / pageSize.value))) })
 function handleSortChange({ prop, order }) { sortBy.value = prop || ''; sortOrder.value = order || '' }
-function resetFilters() { filter.value = 'all'; scoreFilter.value = 'all'; sortBy.value = ''; sortOrder.value = ''; tableRef.value?.clearSort() }
+function resetFilters() { recordDate.value = ''; filter.value = 'all'; scoreFilter.value = 'all'; sortBy.value = ''; sortOrder.value = ''; tableRef.value?.clearSort() }
 async function openJobDetails(job) {
   try { await window.electron.ipcRenderer.invoke('open-site-with-boss-cookie', { url: job.url }) }
   catch (error) { ElMessage.error(String(error)) }
 }
-const completed = computed(() => batchJobs.value.filter(job => job.status !== 'pending').length)
-const count = (outcome: string) => jobs.value.filter(job => applicationOutcome(job) === outcome).length
+const count = (outcome: string) => dateJobs.value.filter(job => applicationOutcome(job) === outcome).length
 async function refresh() {
   if (loading.value) return
   loading.value = true

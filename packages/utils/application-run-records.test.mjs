@@ -68,3 +68,22 @@ test('concurrent local writes retain all jobs; an incomplete tail is ignored but
   await fs.appendFile(file, '\n{"jobId":"other"}\n')
   await assert.rejects(readApplicationRunRecords(file), /格式损坏/)
 })
+
+test('daily history deduplicates screening steps but preserves the same job on different days', async t => {
+  const file = await fixture(t)
+  await fs.writeFile(file, [
+    { jobId: 'repeat', status: 'observed', recordedAt: '2026-11-19T01:00:00Z' },
+    { jobId: 'repeat', status: 'recommend', score: 80, recordedAt: '2026-11-19T01:01:00Z' },
+    { jobId: 'repeat', status: 'chatted', recordedAt: '2026-11-19T01:02:00Z' },
+    { jobId: 'repeat', status: 'observed', recordedAt: '2026-11-19T01:03:00Z' },
+    { jobId: 'repeat', status: 'reject', recordedAt: '2026-11-20T01:00:00Z' }
+  ].map(row => JSON.stringify(row)).join('\n') + '\n')
+  const daily = await readApplicationRunRecords(file, { groupByDay: true })
+  assert.equal(daily.length, 2)
+  assert.equal(daily[0].status, 'reject')
+  assert.equal(daily[1].status, 'chatted')
+  assert.equal(daily[1].score, 80)
+  const latest = await readApplicationRunRecords(file)
+  assert.equal(latest.length, 1)
+  assert.equal(latest[0].status, 'reject')
+})

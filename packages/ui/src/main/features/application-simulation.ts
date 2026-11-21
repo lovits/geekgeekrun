@@ -10,6 +10,7 @@ import { readJobFeedback } from '@geekgeekrun/utils/job-feedback.mjs'
 import { getSimulationJobs } from '../flow/OPEN_SETTING_WINDOW/utils/db'
 import filterCatalog from '@geekgeekrun/geek-auto-start-chat-with-boss/internal-config/job-filter-conditions-20241002.json'
 import { applicationRunFile, readApplicationRunRecords, mergeApplicationRecords } from '@geekgeekrun/utils/application-run-records.mjs'
+import { applicationRecordDay } from '@geekgeekrun/utils/application-outcome.mjs'
 import { readOnlineSimulation, saveOnlineSimulation, onlineSimulationWorker, onlineSimulationRunning } from '@geekgeekrun/utils/online-application-simulation.mjs'
 import { runCommon } from './run-common'
 import { sendToDaemon } from '../flow/OPEN_SETTING_WINDOW/connect-to-daemon'
@@ -17,6 +18,7 @@ import { sendToDaemon } from '../flow/OPEN_SETTING_WINDOW/connect-to-daemon'
 const file = path.join(storageFilePath, 'job-application-simulation.json')
 let task: Promise<unknown> | null = null
 let runtimeStamp = '', runtimeRecords: any[] = []
+let dailyRuntimeRecords: any[] = []
 
 export async function readDisplayedSimulation() {
   const state = await readSimulation()
@@ -26,14 +28,21 @@ export async function readDisplayedSimulation() {
   }
   try {
     const stat = await fs.stat(applicationRunFile), stamp = `${stat.mtimeMs}:${stat.size}`
-    if (stamp !== runtimeStamp) { runtimeRecords = await readApplicationRunRecords(); runtimeStamp = stamp }
+    if (stamp !== runtimeStamp) {
+      runtimeRecords = await readApplicationRunRecords()
+      dailyRuntimeRecords = await readApplicationRunRecords(applicationRunFile, { groupByDay: true })
+      runtimeStamp = stamp
+    }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    runtimeRecords = []; runtimeStamp = ''
+    runtimeRecords = []; dailyRuntimeRecords = []; runtimeStamp = ''
   }
   const pendingLocalRecords = await fs.readdir(path.join(storageFilePath, 'pending-local-rejections')).then(names => names.filter(name => name.endsWith('.json')).length).catch(error => { if (error.code === 'ENOENT') return 0; throw error })
   if (!state && !runtimeRecords.length && !online && !pendingLocalRecords) return null
-  return { ...(state || { jobs: [], target: 0 }), pendingLocalRecords, running: Boolean(state?.running || online?.running), online, displayJobs: mergeApplicationRecords(state?.jobs?.slice(0, state.target) || [], runtimeRecords) }
+  const localJobs = state?.jobs?.slice(0, state.target) || []
+  const recordedDays = new Set(dailyRuntimeRecords.map(job => `${applicationRecordDay(job)}:${job.jobId}`))
+  const dailyJobs = [...dailyRuntimeRecords, ...localJobs.filter(job => !recordedDays.has(`${applicationRecordDay(job)}:${job.jobId}`))]
+  return { ...(state || { jobs: [], target: 0 }), pendingLocalRecords, running: Boolean(state?.running || online?.running), online, displayJobs: mergeApplicationRecords(localJobs, runtimeRecords), dailyJobs }
 }
 
 async function readSimulation() {

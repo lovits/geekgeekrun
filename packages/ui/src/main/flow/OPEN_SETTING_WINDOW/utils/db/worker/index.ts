@@ -1,5 +1,6 @@
 import 'reflect-metadata'
 import { filterApplicationRecords } from '@geekgeekrun/utils/application-outcome.mjs'
+import { companyLibraryConditions } from '@geekgeekrun/utils/company-library-filters.mjs'
 import { parentPort } from 'node:worker_threads'
 import { initDb } from '@geekgeekrun/sqlite-plugin'
 import { type DataSource } from 'typeorm'
@@ -10,7 +11,7 @@ import { VCompanyLibrary } from '@geekgeekrun/sqlite-plugin/dist/entity/VCompany
 import { VBossLibrary } from '@geekgeekrun/sqlite-plugin/dist/entity/VBossLibrary'
 import { VMarkAsNotSuitLog } from '@geekgeekrun/sqlite-plugin/dist/entity/VMarkAsNotSuitLog'
 import { measureExecutionTime } from '../../../../../../common/utils/performance'
-import { PageReq, PagedRes, JobLibraryReq } from '../../../../../../common/types/pagination'
+import { PageReq, PagedRes, JobLibraryReq, CompanyLibraryReq } from '../../../../../../common/types/pagination'
 import { JobInfoChangeLog } from '@geekgeekrun/sqlite-plugin/dist/entity/JobInfoChangeLog'
 import { AutoStartChatRunRecord } from '@geekgeekrun/sqlite-plugin/dist/entity/AutoStartChatRunRecord'
 
@@ -173,8 +174,8 @@ const payloadHandler = {
       totalItemCount
     }
   },
-  async getCompanyLibrary({ pageNo, pageSize }: Partial<PageReq> = {}): Promise<
-    PagedRes<VCompanyLibrary>
+  async getCompanyLibrary({ pageNo, pageSize, scale, industry }: Partial<CompanyLibraryReq> = {}): Promise<
+    PagedRes<VCompanyLibrary> & { filterOptions: { scales: { scaleLow: number | null; scaleHigh: number | null }[]; industries: string[] } }
   > {
     if (!pageNo) {
       pageNo = 1
@@ -184,16 +185,19 @@ const payloadHandler = {
     }
 
     const userRepository = dataSource!.getRepository(VCompanyLibrary)!
+    const query = userRepository.createQueryBuilder('company')
+    const { clauses, parameters } = companyLibraryConditions({ scale, industry })
+    for (const clause of clauses) query.andWhere(clause, parameters)
     const [data, totalItemCount] = await measureExecutionTime(
-      userRepository.findAndCount({
-        skip: (pageNo - 1) * pageSize,
-        take: pageSize
-      })
+      query.skip((pageNo - 1) * pageSize).take(pageSize).getManyAndCount()
     )
+    const scales = await userRepository.createQueryBuilder('company').select('company.scaleLow', 'scaleLow').addSelect('company.scaleHigh', 'scaleHigh').distinct(true).orderBy('company.scaleLow', 'ASC').getRawMany()
+    const industries = await userRepository.createQueryBuilder('company').select('company.industryName', 'industry').where("company.industryName IS NOT NULL AND company.industryName != ''").distinct(true).orderBy('company.industryName', 'ASC').getRawMany()
     return {
       data,
       pageNo,
-      totalItemCount
+      totalItemCount,
+      filterOptions: { scales, industries: industries.map(row => row.industry) }
     }
   },
   async getBossLibrary({ pageNo, pageSize }: Partial<PageReq> = {}): Promise<

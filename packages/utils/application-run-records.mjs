@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { applicationRecordDay } from './application-outcome.mjs'
 
 export const applicationRunFile = path.join(os.homedir(), '.geekgeekrun/storage/application-run-records.jsonl')
 const markReasons = ['原因未记录', 'BOSS活跃度不符合设置', '手动标记不合适', '职位职责不符合设置', '工作地不符合设置', '工作经验不符合设置', '薪资不符合设置', '公司不符合设置']
@@ -50,7 +51,7 @@ export function attachApplicationRecording(hooks, file = applicationRunFile, met
   }
 }
 
-export async function readApplicationRunRecords(file = applicationRunFile) {
+export async function readApplicationRunRecords(file = applicationRunFile, { groupByDay = false } = {}) {
   let text
   try { text = await fs.readFile(file, 'utf8') }
   catch (error) { if (error.code === 'ENOENT') return []; throw error }
@@ -62,8 +63,10 @@ export async function readApplicationRunRecords(file = applicationRunFile) {
     try { event = JSON.parse(line) }
     catch { if (index === lines.length - 1) break; throw new Error('运行记录格式损坏，请保留原文件后检查') }
     if (!event.jobId) throw new Error('运行记录缺少岗位ID')
-    const previous = records.get(event.jobId) || {}
-    records.set(event.jobId, { ...previous, ...event })
+    const key = groupByDay ? `${applicationRecordDay(event)}:${event.jobId}` : event.jobId
+    const previous = records.get(key) || {}
+    if (groupByDay && previous.status === 'chatted' && event.status !== 'chatted') continue
+    records.set(key, { ...previous, ...event })
   }
   return [...records.values()].sort((a, b) => b.recordedAt.localeCompare(a.recordedAt))
 }

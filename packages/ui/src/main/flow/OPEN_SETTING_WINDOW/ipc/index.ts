@@ -1,4 +1,5 @@
 import { piStatus, piCompletion, listPiModels, resolvePiBinary } from '@geekgeekrun/utils/pi-request.mjs'
+import { companyLibraryConditions } from '@geekgeekrun/utils/company-library-filters.mjs'
 import { downloadReleaseAsset } from '@geekgeekrun/utils/update-download.mjs'
 import { readJobFeedback, saveJobFeedback } from '@geekgeekrun/utils/job-feedback.mjs'
 import { hasConfiguredLlm, feedbackLearningState } from '@geekgeekrun/utils/job-feedback-learning.mjs'
@@ -436,7 +437,8 @@ export default function initIpc() {
     const a = await getBossLibrary(payload)
     return a
   })
-  ipcMain.handle('get-company-library', async (_ev, payload: PageReq) => {
+  ipcMain.handle('get-company-library', async (_ev, payload: Parameters<typeof getCompanyLibrary>[0]) => {
+    companyLibraryConditions(payload)
     const a = await getCompanyLibrary(payload)
     return a
   })

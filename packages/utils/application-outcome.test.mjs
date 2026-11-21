@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applicationOutcome, filterApplicationRecords } from './application-outcome.mjs'
+import { applicationOutcome, filterApplicationRecords, applicationRecordDay } from './application-outcome.mjs'
 
 test('matched candidates with missing activity share the eligible display without changing the underlying guard', () => {
   const job = { status: 'verify', match: true, rulePass: true, reason: 'BOSS活跃状态未记录', score: 85 }
@@ -63,4 +63,29 @@ test('evaluation failures have their own filter without becoming unsuitable or d
   assert.equal(applicationOutcome(rows[0]), null)
   assert.deepEqual(filterApplicationRecords(rows, { outcome: 'failed' }).map(x => x.jobId), ['error'])
   assert.deepEqual(filterApplicationRecords(rows, { outcome: 'ineligible' }).map(x => x.jobId), ['rejected'])
+})
+
+test('date filtering uses the local calendar day and composes with existing filters', () => {
+  const previousTimezone = process.env.TZ
+  process.env.TZ = 'Asia/Shanghai'
+  try {
+    const rows = [
+      { jobId: 'before', status: 'recommend', score: 80, recordedAt: '2026-11-20T15:59:59Z' },
+      { jobId: 'after', status: 'chatted', score: 90, recordedAt: '2026-11-20T16:00:00Z' },
+      { jobId: 'fail', status: 'error', recordedAt: '2026-11-21 00:00:00' },
+      { jobId: 'invalid', status: 'reject', recordedAt: 'bad' }
+    ]
+    assert.equal(applicationRecordDay(rows[0]), '2026-11-20')
+    assert.equal(applicationRecordDay(rows[1]), '2026-11-21')
+    assert.equal(applicationRecordDay(rows[2]), '2026-11-21')
+    assert.equal(applicationRecordDay(rows[3]), '')
+    assert.equal(applicationRecordDay({}), '')
+    assert.deepEqual(filterApplicationRecords(rows, { date: '2026-11-21', outcome: 'delivered', score: 'scored' }).map(row => row.jobId), ['after'])
+    assert.deepEqual(filterApplicationRecords(rows, { date: '2026-11-21', outcome: 'failed' }).map(row => row.jobId), ['fail'])
+    assert.equal(filterApplicationRecords(rows, { date: '2026-11-22' }).length, 0)
+    assert.equal(filterApplicationRecords(rows, { date: '' }).length, 4)
+  } finally {
+    if (previousTimezone === undefined) delete process.env.TZ
+    else process.env.TZ = previousTimezone
+  }
 })
